@@ -53,7 +53,118 @@ python scripts/transcribe.py input.mp4 output.srt --model base
 - 每个片段的时间戳信息
 - 生成 `full.srt` 字幕文件
 
-### 步骤 3: AI 解说文案生成 (关键改进)
+### 步骤 2.5: 检测是否为纯音乐（新增步骤）
+
+**关键改进：自动检测视频是否为纯音乐（无对话/旁白）**
+
+语音识别完成后，分析识别结果判断是否为纯音乐：
+
+**判断条件：**
+1. 识别出的文字字数 < 50 字
+2. 识别出的片段数 < 10 个
+3. 平均每个片段的文字数 < 5 字
+
+满足以上任一条件，判定为**纯音乐视频**。
+
+```python
+# 判断逻辑示例
+total_words = sum(len(seg.text.split()) for seg in segments)
+avg_words_per_segment = total_words / len(segments) if segments else 0
+
+is_instrumental = (
+    total_words < 50 or  # 文字太少
+    len(segments) < 10 or  # 片段太少
+    avg_words_per_segment < 5  # 每片段平均字数少
+)
+```
+
+### 步骤 3: 根据类型选择处理方式
+
+#### 情况 A: 有旁白/对话 → 原有流程
+
+1. 将语音识别结果发送给当前 LLM
+2. 生成解说文案
+3. 基于文案内容识别精彩片段
+
+#### 情况 B: 纯音乐/无旁白 → 音频能量分析（新增）
+
+当判定为纯音乐时，使用**音频能量分析**识别精彩片段：
+
+**方法：使用 FFmpeg 分析音频响度**
+
+```bash
+# 使用 ffmpeg 分析音频能量，输出每个片段的 RMS 能量值
+ffmpeg -i input.mp4 -af "astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level:file=energy.txt" -f null -
+```
+
+**或者使用 Python 音频分析：**
+
+```python
+import subprocess
+import numpy as np
+
+def analyze_audio_energy(video_path, output_path="energy.txt"):
+    """分析视频音频能量，输出每个时间段的能量值"""
+
+    # 使用 ffprobe 获取音频流信息
+    cmd = [
+        'ffprobe', '-v', 'quiet',
+        '-print_format', 'json',
+        '-show_format', '-show_streams',
+        video_path
+    ]
+
+    # 使用 ffmpeg 提取音频并分析
+    cmd = [
+        'ffmpeg', '-i', video_path,
+        '-af', 'compand=gain=-6,astats=metadata=1:reset=1',
+        '-f', 'null', '-'
+    ]
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+
+    # 解析输出，提取 RMS 能量值
+    # 返回: [(timestamp, energy), ...]
+    energies = []
+    for line in result.stderr.split('\n'):
+        if 'RMS_level' in line:
+            # 解析时间和能量值
+            pass
+
+    return energies
+```
+
+**精彩片段识别逻辑：**
+
+1. 将视频按固定时间窗口分割（如 5 秒一段）
+2. 计算每段的平均音频能量
+3. 筛选能量最高的片段（通常是高潮部分）
+4. 合并相邻高能量片段
+5. 输出片段时间戳列表
+
+```python
+def find_highlight_segments(energies, threshold_percentile=75):
+    """从音频能量数据中识别高能量片段"""
+
+    # 计算能量阈值（高于 75% 的片段）
+    threshold = np.percentile(energies, threshold_percentile)
+
+    # 标记高能量区域
+    highlight_timestamps = []
+    for i, (timestamp, energy) in enumerate(energies):
+        if energy >= threshold:
+            highlight_timestamps.append(timestamp)
+
+    # 合并相邻片段（间隔小于 3 秒）
+    merged = merge_adjacent_segments(highlight_timestamps, gap_threshold=3)
+
+    # 过滤过短片段（小于 5 秒）
+    final_segments = [s for s in merged if s['duration'] >= 5]
+
+    return final_segments
+```
+
+### 步骤 4: AI 解说文案生成
 
 **不需要配置任何外部 API Key！直接使用当前 Claude 会话生成文案。**
 
@@ -77,16 +188,22 @@ python scripts/transcribe.py input.mp4 output.srt --model base
 请生成适合配音的解说文案，并在每个段落前标注对应的时间点。
 ```
 
-### 步骤 4: 精彩片段识别
+**纯音乐视频的解说文案：**
 
-基于语音识别结果和生成的文案，识别精彩片段：
+如果步骤 2.5 判定为纯音乐，解说文案应该描述音乐情绪和结构：
 
-1. 筛选高能量/信息密度高的段落
-2. 根据片段时间戳提取
-3. 合并相邻片段
-4. 输出片段时间戳列表
+```
+这是一首纯音乐视频，没有对话或旁白。
 
-可以询问用户想保留哪些片段，或者让 LLM 根据内容重要性推荐。
+音乐结构分析：
+- 00:00 - 00:48: 前奏/引入部分，情绪渐进
+- 00:48 - 01:42: 第一次副歌，能量上升
+- 01:56 - 02:13: 高潮段落，情绪最高点
+- 02:17 - 02:52: 尾声，情感回落
+
+建议解说文案：
+"这是一段充满活力的音乐..."
+```
 
 ### 步骤 5: 视频剪切
 
@@ -124,28 +241,81 @@ output/
 - 时间戳格式: `HH:MM:SS,mmm`
 
 **3. Premiere XML 时间线**
+
+正确的 Premiere XML 格式（可直接导入 Premiere）：
+
 ```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE xmeml>
+<?xml version='1.0' encoding='utf-8'?>
 <xmeml version="5">
-  <project>
+  <sequence explodedTracks="true">
     <name>Video Narrator Export</name>
-    <children>
-      <sequence>
-        <name>Main Sequence</name>
-        <rate><timebase>30</timebase></rate>
-        <media>
-          <video>
-            <track>
-              <!-- 片段信息 -->
-            </track>
-          </video>
-        </media>
-      </sequence>
-    </children>
-  </project>
+    <duration>36</duration>
+    <rate>
+      <timebase>30</timebase>
+      <ntsc>FALSE</ntsc>
+    </rate>
+    <media>
+      <video>
+        <format>
+          <samplecharacteristics>
+            <width>1920</width>
+            <height>1080</height>
+            <pixelaspectratio>square</pixelaspectratio>
+            <rate>
+              <timebase>30</timebase>
+              <ntsc>FALSE</ntsc>
+            </rate>
+          </samplecharacteristics>
+        </format>
+        <track>
+          <clipitem id="clipitem-1">
+            <name>clip_001</name>
+            <enabled>TRUE</enabled>
+            <start>0</start>
+            <end>180</end>
+            <in>0</in>
+            <out>180</out>
+            <file id="file-1">
+              <name>clip_001.mp4</name>
+              <pathurl>/path/to/clip_001.mp4</pathurl>
+              <timecode>
+                <string>00:00:00:00</string>
+                <displayformat>NDF</displayformat>
+                <rate>
+                  <timebase>30</timebase>
+                  <ntsc>FALSE</ntsc>
+                </rate>
+              </timecode>
+              <!-- 完整的 media 信息 -->
+            </file>
+            <link>
+              <linkclipref>clipitem-1</linkclipref>
+              <mediatype>video</mediatype>
+              <trackindex>1</trackindex>
+              <clipindex>1</clipindex>
+            </link>
+          </clipitem>
+        </track>
+      </video>
+      <!-- 音频部分：双轨道 stereo 结构 -->
+      <audio>
+        <numOutputChannels>2</numOutputChannels>
+        <track>
+          <!-- 音频片段 -->
+        </track>
+      </audio>
+    </media>
+  </sequence>
 </xmeml>
 ```
+
+**关键要点：**
+- 根元素直接是 `<sequence>`，无 `<project>` 包装
+- 需要 `explodedTracks="true"` 属性
+- 需要完整的 `<format>` 和 `<samplecharacteristics>` 视频信息
+- 音频使用双轨道 stereo 结构
+- 路径使用 `/` 格式（不带 `file://` 前缀）
+- 使用 `ntsc="FALSE"`
 
 **4. EDL 时间线 (CMX 3600)**
 ```
@@ -161,6 +331,7 @@ FCM: NON-DROP FRAME
 {
   "project": "video-narrator-export",
   "created": "2026-03-16T10:30:00Z",
+  "video_type": "instrumental", 
   "clips": [
     {
       "id": "clip_001",
@@ -168,17 +339,14 @@ FCM: NON-DROP FRAME
       "start_time": "00:01:30",
       "end_time": "00:02:45",
       "duration": 75,
-      "output_file": "clips/clip_001.mp4"
+      "output_file": "clips/clip_001.mp4",
+      "energy_level": "high"
     }
   ],
   "subtitles": [
     {
       "file": "subtitles/full.srt",
       "type": "full"
-    },
-    {
-      "file": "subtitles/highlights.srt",
-      "type": "highlights"
     }
   ]
 }
@@ -186,40 +354,43 @@ FCM: NON-DROP FRAME
 
 ## 使用示例
 
-### 示例 1: 基本使用
+### 示例 1: 有旁白的视频
 ```
 用户: @处理一下这个视频 /Users/guohanlin/videos/demo.mp4
 
 技能响应:
 1. 正在验证视频文件...
-2. 正在使用 faster-whisper 进行语音识别...
-3. [将转写结果发送给当前 LLM] 正在生成解说文案...
-4. 正在识别精彩片段...
-5. 正在剪切视频...
-6. 正在生成导出文件...
+2. 正在进行语音识别...
+3. 检测到视频包含语音内容
+4. 正在生成解说文案...
+5. 正在识别精彩片段...
+6. 正在剪切视频...
+7. 正在生成导出文件...
 
 完成! 导出文件已保存到: /Users/guohanlin/videos/demo_output/
-
-├── clips/
-│   ├── clip_001.mp4 (01:30 - 02:45)
-│   ├── clip_002.mp4 (05:10 - 06:30)
-│   └── ...
-├── subtitles/
-│   ├── full.srt
-│   └── highlights.srt
-├── timeline/
-│   └── project.xml
-└── manifest.json
 ```
 
-### 示例 2: 指定输出目录
+### 示例 2: 纯音乐视频（新增）
+```
+用户: @处理一下这个音乐视频 /Users/guohanlin/videos/music.mp4
+
+技能响应:
+1. 正在验证视频文件...
+2. 正在进行语音识别...
+3. ⚠️ 检测到为纯音乐视频（语音识别结果少于50字）
+4. 正在使用音频能量分析识别精彩片段...
+5. 正在生成音乐解说文案...
+6. 正在剪切视频...
+7. 正在生成导出文件...
+
+完成! 导出文件已保存到: /Users/guohanlin/videos/music_output/
+- 视频类型: 纯音乐（无旁白）
+- 精彩片段: 基于音频能量分析识别
+```
+
+### 示例 3: 指定输出目录
 ```
 用户: @处理 /Users/guohanlin/videos/demo.mp4，输出到 /Users/guohanlin/output/
-```
-
-### 示例 3: 指定解说风格
-```
-用户: @处理 /Users/guohanlin/videos/demo.mp4，解说风格要幽默风趣
 ```
 
 ## 配置说明
@@ -231,6 +402,7 @@ FCM: NON-DROP FRAME
 | WHISPER_MODEL | 否 | Whisper 模型大小 | base |
 | MIN_CLIP_DURATION | 否 | 片段最小时长(秒) | 10 |
 | MAX_CLIP_DURATION | 否 | 片段最大时长(秒) | 120 |
+| ENERGY_THRESHOLD | 否 | 音频能量阈值(百分位) | 75 |
 
 **重要：不需要配置任何 AI API Key！**
 
@@ -243,6 +415,7 @@ AI 文案生成直接使用当前 Claude 会话的能力，无需外部 API。
 | 视频文件不存在 | 提示用户检查文件路径 |
 | FFmpeg 不可用 | 提示安装 FFmpeg |
 | Whisper 模型失败 | 提供手动下载指引 |
+| 音频分析失败 | 回退到默认剪切策略（均匀切片） |
 | 磁盘空间不足 | 提示清理空间 |
 | 视频格式不支持 | 提示转换格式 |
 
@@ -254,11 +427,15 @@ AI 文案生成直接使用当前 Claude 会话的能力，无需外部 API。
 2. **cut_video.py** - 视频剪切脚本
 3. **generate_xml.py** - Premiere XML 生成脚本
 4. **generate_edl.py** - EDL 时间线生成脚本
+5. **analyze_energy.py** - 音频能量分析脚本（新增）
 
 使用方式：
 ```bash
 # 语音识别
 python scripts/transcribe.py input.mp4 output.srt
+
+# 音频能量分析（新增）
+python scripts/analyze_energy.py input.mp4 energy.json
 
 # 视频剪切
 python scripts/cut_video.py input.mp4 00:01:30 00:02:45 output.mp4
@@ -274,3 +451,4 @@ python scripts/generate_xml.py clips/ timeline/project.xml
 3. 建议确保磁盘空间充足
 4. 视频片段命名按时间顺序排列
 5. **AI 文案生成零配置** - 直接利用当前 LLM 能力，无需 API Key
+6. **纯音乐识别** - 自动检测并使用音频能量分析替代语音识别

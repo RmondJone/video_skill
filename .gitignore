@@ -1,4 +1,3 @@
 .idea
-inputs/*.mp4
-inputs/*.wav
+inputs
 outputs
