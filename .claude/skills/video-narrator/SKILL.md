@@ -80,13 +80,71 @@ is_instrumental = (
 
 ### 步骤 3: 根据类型选择处理方式
 
-#### 情况 A: 有旁白/对话 → 原有流程
+#### 情况 A: 有旁白/对话 → 完整流程
 
-1. 将语音识别结果发送给当前 LLM
-2. 生成解说文案
-3. 基于文案内容识别精彩片段
+当检测到视频包含对话/旁白时，执行以下完整流程：
 
-#### 情况 B: 纯音乐/无旁白 → 音频能量分析（新增）
+**步骤 3.1: LLM 分析字幕生成剧情摘要**
+
+将完整字幕发送给当前 LLM，让它分析并生成：
+
+1. **视频大致剧情/内容摘要**（100-500字）
+2. **关键情节节点**（每个节点包含：时间点、事件描述、重要程度）
+
+```python
+# 发送给 LLM 的提示词
+prompt = f"""
+请分析以下视频字幕，生成：
+
+1. 视频大致剧情/内容摘要（200字左右）
+
+2. 关键情节节点（按时间顺序列出重要事件）：
+   - 时间点
+   - 事件描述
+   - 重要程度（高/中/低）
+
+字幕内容：
+{字幕全文}
+"""
+```
+
+**步骤 3.2: 根据剧情筛选精彩片段**
+
+基于 LLM 分析出的关键情节节点，筛选对应的视频片段：
+
+1. 筛选"重要程度"为"高"的片段
+2. 筛选"重要程度"为"中"的片段作为补充
+3. 每个片段前后扩展 2-5 秒作为缓冲
+
+**步骤 3.3: 生成解说文案字幕**
+
+根据筛选出的视频片段和原始字幕，生成解说文案：
+
+```python
+# 发送给 LLM 的提示词
+prompt = f"""
+基于以下信息，为视频片段生成解说文案：
+
+1. 视频剧情摘要：{剧情摘要}
+
+2. 视频片段列表：
+{片段时间点列表}
+
+3. 原始字幕：{原始字幕}
+
+要求：
+- 每个片段生成一段解说文案
+- 解说文案要简洁、生动、符合原视频内容
+- 保留时间点信息对应
+- 输出格式：时间点 → 解说文案
+"""
+```
+
+**输出：**
+- `subtitles/full.srt` - 原始完整字幕
+- `subtitles/narrator.srt` - AI 解说文案字幕
+
+#### 情况 B: 纯音乐/无旁白 → 音频能量分析
 
 当判定为纯音乐时，使用**音频能量分析**识别精彩片段：
 
@@ -184,26 +242,52 @@ def find_highlight_segments(energies, threshold_percentile=75, max_clips=None):
 
 ### 步骤 4: AI 解说文案生成
 
-**不需要配置任何外部 API Key！直接使用当前 Claude 会话生成文案。**
+**使用脚本生成解说文案提示词，然后使用当前 LLM 会话生成最终文案。**
 
-将语音识别结果发送给当前 LLM，让它根据以下要求生成解说文案：
-1. 阅读语音转写的文字稿
-2. 根据用户需求（如风格、长度、重点）生成解说文案
-3. 保持与时间戳的对应关系
-4. 输出时标注每个段落对应的视频时间点
+#### 4.1 生成解说文案提示词
 
-**提示词示例：**
+```bash
+# 使用 generate_narrator.py 生成提示词
+python3 .claude/skills/video-narrator/scripts/generate_narrator.py \
+    --clips output/manifest.json \
+    --srt output/subtitles/full.srt \
+    --output output/subtitles/narrator.srt
 ```
-我已完成了视频的语音识别，以下是转写结果：
 
-[粘贴语音转写内容]
+这会生成一个提示词文件 `narrator_prompt.txt`，包含：
+- 视频剧情摘要占位符
+- 所有片段的时间范围
+- 每个片段相关的原始字幕
 
-请根据以下要求生成视频解说文案：
-- 风格：[幽默/专业/亲切/正式]
-- 重点：[描述用户想强调的内容]
-- 总时长：约 X 分钟
+#### 4.2 调用 LLM 生成解说文案
 
-请生成适合配音的解说文案，并在每个段落前标注对应的时间点。
+将生成的提示词发送给当前 LLM，让它根据以下要求生成解说文案：
+
+```
+请根据以下信息，为每个视频片段生成解说文案：
+
+1. 首先分析完整字幕，生成视频剧情摘要（200字左右）
+
+2. 然后为每个片段生成1-3句解说文案，要求：
+   - 简洁、生动、符合原视频内容
+   - 保持与原视频内容的相关性
+   - 输出格式：
+     片段1 | 00:00:10-00:00:25 | [解说文案]
+     片段2 | 00:01:30-00:01:45 | [解说文案]
+```
+
+#### 4.3 创建解说文案 SRT 文件
+
+将 LLM 生成的解说文案保存为 SRT 格式：
+
+```srt
+1
+00:00:10,000 --> 00:00:25,000
+这是第一个片段的解说文案
+
+2
+00:01:30,000 --> 00:01:45,000
+这是第二个片段的解说文案
 ```
 
 **纯音乐视频的解说文案：**
@@ -298,11 +382,14 @@ output/
 │   ├── clip_001.mp4
 │   ├── clip_002.mp4
 ├── subtitles/          # 字幕文件
-│   ├── full.srt       # 完整字幕
-│   └── highlights.srt # 精彩片段字幕
-├── timeline/          # 时间线文件
-│   └── project.xml    # Premiere XML
-└── manifest.json      # 素材清单
+│   ├── full.srt        # 完整语音识别字幕
+│   ├── narrator.srt    # AI 解说文案字幕
+│   └── narrator_prompt.txt  # 解说文案生成提示词（供 LLM 使用）
+├── timeline/           # 时间线文件
+│   ├── project.xml     # Premiere XML
+│   └── project.edl     # EDL 时间线
+├── energy.json         # 音频能量分析数据
+└── manifest.json       # 素材清单
 ```
 
 #### 导出文件格式
@@ -551,7 +638,8 @@ AI 文案生成直接使用当前 Claude 会话的能力，无需外部 API。
 2. **cut_video.py** - 视频剪切脚本
 3. **generate_xml.py** - Premiere XML 生成脚本
 4. **generate_edl.py** - EDL 时间线生成脚本
-5. **analyze_energy.py** - 音频能量分析脚本
+5. **analyze_energy.py** - 音频能量分析脚本（纯音乐视频）
+6. **generate_narrator.py** - 解说文案生成脚本（有对话视频）
 
 **脚本完整路径：**
 ```bash
@@ -566,6 +654,12 @@ python3 ${SCRIPT_DIR}/analyze_energy.py input.mp4 energy.json
 
 # 音频能量分析（保留最多10个片段）
 python3 ${SCRIPT_DIR}/analyze_energy.py input.mp4 energy.json --max-clips 10
+
+# 生成解说文案提示词（用于有对话的视频）
+python3 ${SCRIPT_DIR}/generate_narrator.py \
+    --clips output/manifest.json \
+    --srt output/subtitles/full.srt \
+    --output output/subtitles/narrator.srt
 
 # 视频剪切（每个片段调用一次）
 python3 ${SCRIPT_DIR}/cut_video.py input.mp4 00:01:30 00:02:45 output/clips/clip_001.mp4
