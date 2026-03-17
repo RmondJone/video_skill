@@ -23,29 +23,29 @@ description: 视频解说生成器 - 用户@出要处理的视频，自动进行
 
 ## 处理流程
 
-### 步骤 1: 验证环境依赖
+### 步骤 1: 验证环境依赖（自动执行）
 
-检查以下工具是否可用：
+**自动检查以下工具是否可用，无需用户同意：**
 1. **FFmpeg** - 视频处理
 2. **faster-whisper** - 语音识别
 3. **Python** - 运行环境
 
-如果缺少依赖，提示用户安装：
+如果缺少依赖，自动提示用户安装并执行安装命令：
 ```bash
-# 安装 ffmpeg (macOS)
-brew install ffmpeg
+# 检查并安装 ffmpeg (macOS)
+which ffmpeg || brew install ffmpeg
 
-# 安装 faster-whisper
-pip install faster-whisper
+# 检查并安装 faster-whisper
+python3 -c "import faster_whisper" 2>/dev/null || pip install faster-whisper
 ```
 
-### 步骤 2: 语音识别 (ASR)
+### 步骤 2: 语音识别 (ASR)（自动执行）
 
-使用 faster-whisper 识别视频中的语音：
+**自动使用 faster-whisper 识别视频中的语音，无需用户同意：**
 
 ```bash
-# 运行语音识别脚本
-python scripts/transcribe.py input.mp4 output.srt --model base
+# 自动运行语音识别脚本
+python3 .claude/skills/video-narrator/scripts/transcribe.py input.mp4 output.srt --model base
 ```
 
 输出：
@@ -136,15 +136,26 @@ def analyze_audio_energy(video_path, output_path="energy.txt"):
 
 **精彩片段识别逻辑：**
 
-1. 将视频按固定时间窗口分割（如 5 秒一段）
+1. 将视频按固定时间窗口分割（如 3-5 秒一段）
 2. 计算每段的平均音频能量
 3. 筛选能量最高的片段（通常是高潮部分）
 4. 合并相邻高能量片段
 5. 输出片段时间戳列表
 
+**重要：默认保留所有识别出的高能片段，不进行数量限制！**
+
 ```python
-def find_highlight_segments(energies, threshold_percentile=75):
-    """从音频能量数据中识别高能量片段"""
+def find_highlight_segments(energies, threshold_percentile=75, max_clips=None):
+    """从音频能量数据中识别高能量片段
+
+    Args:
+        energies: 音频能量数据列表
+        threshold_percentile: 能量阈值百分位（默认75，即能量最高的25%）
+        max_clips: 最大保留片段数，None表示保留全部
+
+    Returns:
+        高能量片段列表
+    """
 
     # 计算能量阈值（高于 75% 的片段）
     threshold = np.percentile(energies, threshold_percentile)
@@ -160,6 +171,13 @@ def find_highlight_segments(energies, threshold_percentile=75):
 
     # 过滤过短片段（小于 5 秒）
     final_segments = [s for s in merged if s['duration'] >= 5]
+
+    # 按能量排序（从高到低）
+    final_segments.sort(key=lambda x: x['avg_energy'], reverse=True)
+
+    # 如果设置了最大片段数限制，则截取
+    if max_clips is not None and max_clips > 0:
+        final_segments = final_segments[:max_clips]
 
     return final_segments
 ```
@@ -207,14 +225,71 @@ def find_highlight_segments(energies, threshold_percentile=75):
 
 ### 步骤 5: 视频剪切
 
-使用 FFmpeg 按时间戳剪切视频：
+**必须使用脚本！** 运行 scripts/cut_video.py 脚本进行剪切：
 
 ```bash
 # 运行视频剪切脚本
-python scripts/cut_video.py input.mp4 00:01:30 00:02:45 output_clip.mp4
+python3 .claude/skills/video-narrator/scripts/cut_video.py <输入视频> <开始时间> <结束时间> <输出文件>
+
+# 示例：
+python3 .claude/skills/video-narrator/scripts/cut_video.py input.mp4 00:01:30 00:02:45 output/clip_001.mp4
 ```
 
+**脚本参数说明：**
+- `input`: 输入视频路径
+- `start`: 开始时间 (格式: HH:MM:SS 或 MM:SS)
+- `end`: 结束时间 (格式: HH:MM:SS 或 MM:SS)
+- `output`: 输出视频路径
+- `--re-encode`: 可选参数，添加此参数会重新编码（默认使用 copy 快速复制）
+
+**重要：必须为每个精彩片段分别调用一次脚本！**
+
 ### 步骤 6: 生成导出文件
+
+**必须使用脚本！** 先生成 manifest.json，然后调用 generate_xml.py 和 generate_edl.py 脚本。
+
+#### 步骤 6.1: 生成 manifest.json
+
+首先需要创建素材清单 manifest.json，包含所有片段的时间信息：
+
+```json
+{
+  "project": "video-narrator-export",
+  "created": "2026-03-16T10:30:00Z",
+  "video_type": "instrumental",
+  "clips": [
+    {
+      "id": "clip_001",
+      "start_time": "00:01:30",
+      "end_time": "00:02:45",
+      "duration": 75,
+      "output_file": "clips/clip_001.mp4"
+    }
+  ]
+}
+```
+
+#### 步骤 6.2: 生成 Premiere XML
+
+**必须使用脚本！**
+
+```bash
+python3 .claude/skills/video-narrator/scripts/generate_xml.py <片段目录> <输出XML路径> --manifest <manifest.json路径> --fps <帧率>
+
+# 示例：
+python3 .claude/skills/video-narrator/scripts/generate_xml.py output/clips output/timeline/project.xml --manifest output/manifest.json --fps 25
+```
+
+#### 步骤 6.3: 生成 EDL 时间线
+
+**必须使用脚本！**
+
+```bash
+python3 .claude/skills/video-narrator/scripts/generate_edl.py <manifest.json路径> <输出EDL路径> --fps <帧率>
+
+# 示例：
+python3 .claude/skills/video-narrator/scripts/generate_edl.py output/manifest.json output/timeline/project.edl --fps 25
+```
 
 #### 目录结构
 ```
@@ -393,16 +468,63 @@ FCM: NON-DROP FRAME
 用户: @处理 /Users/guohanlin/videos/demo.mp4，输出到 /Users/guohanlin/output/
 ```
 
+### 示例 4: 自定义片段数量
+```
+用户: @处理 /Users/guohanlin/videos/demo.mp4，保留10个片段
+
+技能响应:
+1. 正在验证环境...
+2. 正在语音识别...
+3. 正在分析音频能量...
+4. 识别到 25 个高能片段，按要求保留前 10 个
+5. 正在剪切视频...
+6. 正在生成导出文件...
+
+完成! 保留10个精彩片段
+```
+
+### 示例 5: 保留全部片段
+```
+用户: @处理 /Users/guohanlin/videos/demo.mp4，保留全部片段
+
+技能响应:
+1. 正在验证环境...
+2. 正在语音识别...
+3. 正在分析音频能量...
+4. 识别到 25 个高能片段，全部保留
+5. 正在剪切视频...
+6. 正在生成导出文件...
+
+完成! 保留全部25个精彩片段
+```
+
 ## 配置说明
+
+### 用户自定义选项
+
+在调用技能时可以指定以下参数：
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| --max-clips | 最大保留片段数量，0或省略表示保留全部 | 全部保留 |
+| --energy-threshold | 音频能量阈值(百分位)，越高越严格 | 75 |
+
+**使用示例：**
+```
+用户: @处理视频 /Users/guohanlin/videos/demo.mp4，保留10个片段
+用户: @处理视频 /Users/guohanlin/videos/demo.mp4，保留全部片段
+用户: @处理视频 /Users/guohanlin/videos/demo.mp4 --max-clips 5
+```
 
 ### 环境变量 (可选)
 
 | 变量名 | 必填 | 说明 | 默认值 |
 |--------|------|------|--------|
 | WHISPER_MODEL | 否 | Whisper 模型大小 | base |
-| MIN_CLIP_DURATION | 否 | 片段最小时长(秒) | 10 |
+| MIN_CLIP_DURATION | 否 | 片段最小时长(秒) | 5 |
 | MAX_CLIP_DURATION | 否 | 片段最大时长(秒) | 120 |
 | ENERGY_THRESHOLD | 否 | 音频能量阈值(百分位) | 75 |
+| MAX_CLIPS | 否 | 默认最大片段数量，0表示全部保留 | 0（全部） |
 
 **重要：不需要配置任何 AI API Key！**
 
@@ -421,27 +543,38 @@ AI 文案生成直接使用当前 Claude 会话的能力，无需外部 API。
 
 ## 脚本工具
 
-技能提供以下辅助脚本（位于 `scripts/` 目录）：
+**重要：所有脚本位于 `.claude/skills/video-narrator/scripts/` 目录**
+
+技能提供以下辅助脚本：
 
 1. **transcribe.py** - 语音识别脚本
 2. **cut_video.py** - 视频剪切脚本
 3. **generate_xml.py** - Premiere XML 生成脚本
 4. **generate_edl.py** - EDL 时间线生成脚本
-5. **analyze_energy.py** - 音频能量分析脚本（新增）
+5. **analyze_energy.py** - 音频能量分析脚本
 
-使用方式：
+**脚本完整路径：**
 ```bash
+# 脚本基础路径
+SCRIPT_DIR=".claude/skills/video-narrator/scripts"
+
 # 语音识别
-python scripts/transcribe.py input.mp4 output.srt
+python3 ${SCRIPT_DIR}/transcribe.py input.mp4 output.srt
 
-# 音频能量分析（新增）
-python scripts/analyze_energy.py input.mp4 energy.json
+# 音频能量分析（默认保留全部片段）
+python3 ${SCRIPT_DIR}/analyze_energy.py input.mp4 energy.json
 
-# 视频剪切
-python scripts/cut_video.py input.mp4 00:01:30 00:02:45 output.mp4
+# 音频能量分析（保留最多10个片段）
+python3 ${SCRIPT_DIR}/analyze_energy.py input.mp4 energy.json --max-clips 10
 
-# 生成 XML
-python scripts/generate_xml.py clips/ timeline/project.xml
+# 视频剪切（每个片段调用一次）
+python3 ${SCRIPT_DIR}/cut_video.py input.mp4 00:01:30 00:02:45 output/clips/clip_001.mp4
+
+# 生成 Premiere XML（需要先有 manifest.json）
+python3 ${SCRIPT_DIR}/generate_xml.py output/clips output/timeline/project.xml --manifest output/manifest.json --fps 25
+
+# 生成 EDL（需要先有 manifest.json）
+python3 ${SCRIPT_DIR}/generate_edl.py output/manifest.json output/timeline/project.edl --fps 25
 ```
 
 ## 注意事项
@@ -452,3 +585,4 @@ python scripts/generate_xml.py clips/ timeline/project.xml
 4. 视频片段命名按时间顺序排列
 5. **AI 文案生成零配置** - 直接利用当前 LLM 能力，无需 API Key
 6. **纯音乐识别** - 自动检测并使用音频能量分析替代语音识别
+7. 识别语音、剪切视频、生成XML 文件等操作必须使用SKILL 自带脚本执行

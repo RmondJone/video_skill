@@ -82,8 +82,19 @@ def analyze_audio_rms(video_path, window_sec=3):
     return energies
 
 
-def find_highlight_segments(energies, threshold_percentile=75, min_duration=5, merge_gap=3):
-    """从音频能量数据中识别高能量片段"""
+def find_highlight_segments(energies, threshold_percentile=75, min_duration=5, merge_gap=3, max_clips=None):
+    """从音频能量数据中识别高能量片段
+
+    Args:
+        energies: 音频能量数据列表
+        threshold_percentile: 能量阈值百分位
+        min_duration: 最小片段时长（秒）
+        merge_gap: 合并间隔阈值（秒）
+        max_clips: 最大保留片段数，None或0表示保留全部
+
+    Returns:
+        高能量片段列表（按能量从高到低排序）
+    """
     if not energies:
         return []
 
@@ -132,8 +143,15 @@ def find_highlight_segments(energies, threshold_percentile=75, min_duration=5, m
     if highlight_ranges:
         highlight_ranges = merge_adjacent_ranges(highlight_ranges, merge_gap)
 
-    # 按能量排序
+    # 按能量排序（从高到低）
     highlight_ranges.sort(key=lambda x: x['avg_energy'], reverse=True)
+
+    # 如果设置了最大片段数限制，则截取；None 或 0 表示保留全部
+    if max_clips is not None and max_clips > 0:
+        highlight_ranges = highlight_ranges[:max_clips]
+        print(f"已限制保留片段数量: {max_clips} 个")
+    else:
+        print(f"保留全部 {len(highlight_ranges)} 个高能片段")
 
     return highlight_ranges
 
@@ -208,8 +226,12 @@ def main():
     parser.add_argument('output', help='输出 JSON 文件路径')
     parser.add_argument('--window', type=int, default=3, help='分析窗口大小(秒, 默认3)')
     parser.add_argument('--threshold', type=int, default=75, help='能量阈值百分位(默认75)')
+    parser.add_argument('--max-clips', type=int, default=0, help='最大保留片段数量，0或省略表示保留全部')
 
     args = parser.parse_args()
+
+    # 将 0 转换为 None 表示保留全部
+    max_clips = args.max_clips if args.max_clips > 0 else None
 
     if not os.path.exists(args.input):
         print(f"错误: 输入文件不存在: {args.input}", file=sys.stderr)
@@ -234,11 +256,16 @@ def main():
 
     # 识别精彩片段
     print("正在识别精彩片段...")
+    if max_clips:
+        print(f"将保留最多 {max_clips} 个高能片段")
+    else:
+        print("将保留全部高能片段")
     highlights = find_highlight_segments(
         energies,
         threshold_percentile=args.threshold,
         min_duration=5,
-        merge_gap=3
+        merge_gap=3,
+        max_clips=max_clips
     )
 
     print(f"识别到 {len(highlights)} 个精彩片段")
