@@ -77,6 +77,11 @@ def transcribe_video(video_path, output_dir, model_size='base'):
     print(f"语音识别完成: {srt_path}")
     return srt_path
 
+def check_subtitle_exists(output_dir):
+    """检查字幕文件是否已存在"""
+    subtitle_path = os.path.join(output_dir, "subtitles", "full.srt")
+    return os.path.exists(subtitle_path), subtitle_path
+
 def format_timestamp_hms(seconds):
     """将秒数转换为 SRT 时间格式"""
     h = int(seconds // 3600)
@@ -151,7 +156,7 @@ def main():
     parser.add_argument('input', help='输入视频文件路径')
     parser.add_argument('--output', '-o', help='输出目录路径')
     parser.add_argument('--clips', help='片段时间信息 JSON 文件')
-    parser.add_argument('--whisper-model', default='base',
+    parser.add_argument('--whisper-model', default='small',
                         choices=['tiny', 'base', 'small', 'medium', 'large'],
                         help='Whisper 模型大小')
 
@@ -171,13 +176,22 @@ def main():
         output_dir = args.output
     else:
         input_name = os.path.splitext(os.path.basename(args.input))[0]
-        output_dir = os.path.join(os.path.dirname(args.input), f"{input_name}_output")
+        # 默认输出到 output/<文件名>/ 目录
+        output_dir = os.path.join("output", input_name)
 
     os.makedirs(output_dir, exist_ok=True)
     print(f"输出目录: {output_dir}")
 
-    # 步骤 1: 语音识别
-    if WHISPER_AVAILABLE:
+    # 步骤 1: 检测字幕是否存在
+    subtitle_exists, subtitle_path = check_subtitle_exists(output_dir)
+
+    # 步骤 1.5: 如果字幕已存在，跳过识别，直接进入剧情分析
+    if subtitle_exists:
+        print(f"✓ 检测到已有字幕文件: {subtitle_path}")
+        print("  跳过语音识别，直接进入剧情分析阶段")
+        srt_path = subtitle_path
+    elif WHISPER_AVAILABLE:
+        # 字幕不存在，执行语音识别
         srt_path = transcribe_video(args.input, output_dir, args.whisper_model)
     else:
         print("跳过语音识别（faster-whisper 未安装）")

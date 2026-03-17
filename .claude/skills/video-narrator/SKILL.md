@@ -41,7 +41,7 @@ which ffmpeg || brew install ffmpeg
 python3 -c "import faster_whisper" 2>/dev/null || pip install faster-whisper
 ```
 
-### 步骤 1.5: 检测字幕是否存在（新增）
+### 步骤 1.5: 检测字幕是否存在（关键改动）
 
 **自动检测：检测字幕文件是否已存在**
 
@@ -58,37 +58,29 @@ def check_subtitle_exists(output_dir):
 ```
 
 **检测路径：**
-- 默认检测路径：`output/subtitles/full.srt`
+- 默认检测路径：`output/<文件名>/subtitles/full.srt`（例如：`output/test1/subtitles/full.srt`）
 - 如果用户指定了输出目录，则检测 `用户指定目录/subtitles/full.srt`
 
-**处理方式：**
+**【关键改动】处理方式：**
 
 1. **字幕不存在**：正常执行步骤 2（语音识别）
 
-2. **字幕已存在**：询问用户选择
-   ```
-   检测到已有字幕文件: output/subtitles/full.srt
-
-   请选择处理方式：
-   1. 跳过识别（使用现有字幕）
-   2. 重新识别（覆盖现有字幕）
-   ```
+2. **字幕已存在**：直接跳过识别阶段，进入剧情分析阶段
+   - 直接使用现有 `full.srt` 字幕文件
+   - **不再进行视频类型判断**（跳过步骤 2.5）
+   - 直接进入**步骤 3：剧情分析阶段**
 
 **用户交互示例：**
 ```
-检测到已有字幕文件: output/subtitles/full.srt
+检测到已有字幕文件: output/test1/subtitles/full.srt
 
-请选择处理方式：
-1. 跳过识别 - 使用现有字幕继续后续步骤（推荐）
-2. 重新识别 - 覆盖现有字幕重新进行语音识别
-3. 指定新目录 - 指定其他输出目录
-
-请回复数字或选项：
+✓ 跳过语音识别，直接进入剧情分析阶段
 ```
 
 **跳过识别时：**
 - 直接使用现有 `full.srt` 字幕文件
-- 继续执行后续步骤（剧情分析、解说文案生成、视频剪切等）
+- 跳过视频类型判断（不再区分有对话/纯音乐）
+- 直接执行步骤 3 的剧情分析
 
 **参数支持（可选）：**
 
@@ -96,13 +88,16 @@ def check_subtitle_exists(output_dir):
 
 | 参数 | 说明 |
 |------|------|
-| `--skip-asr` | 直接跳过语音识别，使用现有字幕 |
+| `--skip-asr` | 直接跳过语音识别，使用现有字幕（默认行为） |
 | `--force-asr` | 强制重新执行语音识别 |
 
 **命令示例：**
 ```bash
-# 使用 --skip-if-exists 参数自动跳过已有字幕
-python3 .claude/skills/video-narrator/scripts/transcribe.py input.mp4 output/subtitles/full.srt --skip-if-exists
+# 默认行为：检测到字幕则自动跳过识别
+python3 .claude/skills/video-narrator/scripts/transcribe.py input.mp4 output/subtitles/full.srt
+
+# 强制重新识别
+python3 .claude/skills/video-narrator/scripts/transcribe.py input.mp4 output/subtitles/full.srt --force
 ```
 
 ### 步骤 2: 语音识别 (ASR)
@@ -145,7 +140,9 @@ python3 .claude/skills/video-narrator/scripts/transcribe.py input.mp4 output.srt
 - 每个片段的时间戳信息
 - 生成 `full.srt` 字幕文件
 
-### 步骤 2.5: 检测是否为纯音乐（新增步骤）
+### 步骤 2.5: 检测是否为纯音乐（仅首次识别时执行）
+
+**【重要】此步骤仅在首次进行语音识别时执行。如果字幕已存在（步骤 1.5 跳过识别），则直接进入步骤 3 的剧情分析阶段，不再进行视频类型判断。**
 
 **关键改进：自动检测视频是否为纯音乐（无对话/旁白）**
 
@@ -170,7 +167,15 @@ is_instrumental = (
 )
 ```
 
+**【关键】字幕已存在时的处理：**
+- 如果步骤 1.5 检测到字幕已存在并跳过识别
+- 则直接进入**步骤 3：剧情分析阶段**
+- **不再执行步骤 2.5 的视频类型判断**
+- 直接使用字幕内容进行剧情分析
+
 ### 步骤 3: 情况 A - 有对话/旁白视频处理流程
+
+**【强制规则】所有剧情摘要、关键情节分析、解说文案生成等需要 AI 分析的操作，必须通过预设脚本完成，禁止自己生成脚本或动态创建代码执行。**
 
 **重要规则：**
 - **有对话/旁白的视频**：禁用音频能量分析！必须基于字幕内容分析
@@ -182,10 +187,10 @@ is_instrumental = (
 
 **步骤 3.1: 【必须】使用 generate_story_summary.py 脚本生成剧情摘要和关键情节分析**
 
-【关键】必须使用 `generate_story_summary.py` 脚本生成提示词，然后发送给 LLM 分析：
+【强制】必须使用 `generate_story_summary.py` 脚本生成提示词，该脚本会生成 `analysis_prompt.txt` 文件，然后自动完成分析：
 
 ```bash
-# 运行剧情摘要和关键情节分析脚本
+# 运行剧情摘要和关键情节分析脚本（短视频 < 15分钟）
 python3 .claude/skills/video-narrator/scripts/generate_story_summary.py \
     --srt output/subtitles/full.srt \
     --output output/analysis.json
@@ -203,9 +208,17 @@ python3 .claude/skills/video-narrator/scripts/generate_story_summary.py \
     --mode short
 ```
 
+**【重要】脚本执行流程：**
+1. 脚本自动读取字幕文件
+2. 脚本自动生成分析提示词并保存到 `analysis_prompt.txt`
+3. **【禁止】不允许手动将提示词发送给 LLM 或自己编写代码生成分析结果**
+4. 脚本运行完成后，检查是否生成了 `analysis.json` 文件
+   - 如果已存在有效的 `analysis.json`，说明已有分析结果，直接使用
+   - 如果不存在，需要使用预设的分析结果文件或重新运行脚本
+
 **分段处理说明（针对长视频 > 15分钟）：**
 
-脚本支持自动分段处理长视频，解决 LLM 上下文长度限制问题：
+脚本支持自动分段处理长视频，解决上下文长度限制问题：
 
 - **自动检测**：当视频时长超过 15 分钟时，自动将字幕分为多个段落
 - **分段模式** (`--mode` 参数)：
@@ -216,8 +229,8 @@ python3 .claude/skills/video-narrator/scripts/generate_story_summary.py \
 **脚本输出：**
 
 短视频（< 15分钟）：
-- `output/analysis_prompt.txt` - 发送给 LLM 的提示词
-- `output/analysis.json` - 分析结果占位文件
+- `output/analysis_prompt.txt` - 发送给 LLM 的提示词（仅供查看）
+- `output/analysis.json` - 分析结果（如果已有则使用，否则需要预先准备）
 
 长视频（> 15分钟）：
 - `output/analysis_prompt_p1.txt` - 第一分段提示词
@@ -225,38 +238,16 @@ python3 .claude/skills/video-narrator/scripts/generate_story_summary.py \
 - `output/analysis_prompt_summary.txt` - 汇总提示词（包含所有分段的时间点）
 - `output/analysis.json` - 最终分析结果
 
-**分段分析工作流程（长视频）：**
+**【关键约束】禁止行为：**
+- ❌ 禁止自己编写 Python/JS 代码生成分析结果
+- ❌ 禁止手动将 prompt 发送给 LLM 并自己填入结果
+- ❌ 禁止修改或扩展预设脚本的功能
+- ✅ 只能使用预设脚本的参数和功能
+- ✅ 如果需要分析结果，必须使用已存在的 analysis.json 或通过脚本重新生成
 
-1. 脚本自动检测视频时长，生成 1-3 个分段提示词
-2. 将每个分段提示词发送给 LLM，获取该时段的关键情节
-3. 将所有分段的分析结果汇总，生成完整连贯的剧情分析
-4. 将最终结果填入 `analysis.json`
+**步骤 3.2: 【必须】使用 analysis.json 中的关键情节创建片段**
 
-脚本会生成提示词，包含：
-1. 视频大致剧情/内容摘要要求（200字左右）
-2. 关键情节节点格式要求（时间点 | 事件描述 | 重要程度）
-
-**步骤 3.2: 【必须】LLM 分析并输出关键情节节点**
-
-将生成的提示词（`analysis_prompt.txt`）发送给当前 LLM，让它分析并生成：
-
-1. **视频大致剧情/内容摘要**（100-500字）
-2. **关键情节节点**（每个节点包含：时间点、事件描述、重要程度高/中/低）
-
-LLM 输出格式要求：
-```
-1. 剧情摘要：xxxxx
-
-2. 关键情节节点：
-00:05:30 | 主角发现重要线索 | 高
-00:10:15 | 发生激烈冲突 | 高
-00:15:45 | 情节转折 | 中
-...
-```
-
-**步骤 3.3: 【必须】根据 LLM 输出的关键情节创建片段**
-
-手动将 LLM 输出的关键情节节点填入 `analysis.json`，格式如下：
+检查脚本生成的 `analysis.json` 文件，使用其中的关键情节节点：
 
 ```json
 {
@@ -286,9 +277,9 @@ LLM 输出格式要求：
 3. 每个片段前后扩展 2-5 秒作为缓冲
 4. **【关键】必须按时间顺序排序**，不是按能量排序
 
-**步骤 3.4: 【必须】使用 generate_narrator.py 脚本生成解说文案**
+**步骤 3.3: 【必须】使用 generate_narrator.py 脚本生成解说文案**
 
-必须使用 `generate_narrator.py` 脚本生成提示词，然后发送给 LLM 生成解说文案：
+必须使用 `generate_narrator.py` 脚本生成解说文案：
 
 ```bash
 # 运行解说文案生成脚本
@@ -298,35 +289,16 @@ python3 .claude/skills/video-narrator/scripts/generate_narrator.py \
     --output output/subtitles/narrator.srt
 ```
 
-脚本输出：
-- `output/subtitles/narrator_prompt.txt` - 发送给 LLM 的解说文案生成提示词
+**【强制】脚本执行规则：**
+- 脚本会自动生成 `narrator_prompt.txt` 提示词文件
+- **【禁止】不允许手动将提示词发送给 LLM**
+- 脚本运行后检查是否生成了有效的 `narrator.srt` 文件
+  - 如果已存在，使用该文件
+  - 如果不存在，需要使用预设的模板或重新运行脚本
 
-脚本会生成提示词，包含：
-1. 视频剧情摘要（从 analysis.json 中读取）
-2. 所有片段的时间范围和描述
-3. 每个片段相关的原始字幕
-4. 输出格式要求
+**步骤 3.4: 视频剪切**
 
-**步骤 3.5: 【必须】LLM 生成解说文案**
-
-将生成的提示词（`narrator_prompt.txt`）发送给当前 LLM，让它根据以下要求生成解说文案：
-
-```
-请根据以下信息，为每个视频片段生成解说文案：
-
-1. 首先分析完整字幕，生成视频剧情摘要（200字左右）
-
-2. 然后为每个片段生成1-3句解说文案，要求：
-   - 简洁、生动、符合原视频内容
-   - 保持与原视频内容的相关性
-   - 输出格式：
-     片段1 | 00:00:10-00:00:25 | [解说文案]
-     片段2 | 00:01:30-00:01:45 | [解说文案]
-```
-
-**输出：**
-- `subtitles/full.srt` - 原始完整字幕
-- `subtitles/narrator.srt` - AI 解说文案字幕
+与原步骤 5 相同，使用 cut_video.py 脚本。
 
 ### 步骤 3 续: 情况 B - 纯音乐/无旁白视频处理流程
 
@@ -334,116 +306,46 @@ python3 .claude/skills/video-narrator/scripts/generate_narrator.py \
 
 **重要：此方法仅用于纯音乐视频！有对话视频禁止使用！**
 
-**方法：使用 FFmpeg 分析音频响度**
+**【强制】必须使用预设脚本 analyze_energy.py 进行音频能量分析：**
 
 ```bash
-# 使用 ffmpeg 分析音频能量，输出每个片段的 RMS 能量值
-ffmpeg -i input.mp4 -af "astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level:file=energy.txt" -f null -
+# 使用预设脚本分析音频能量（默认保留全部高能片段）
+python3 .claude/skills/video-narrator/scripts/analyze_energy.py input.mp4 output/energy.json
+
+# 指定保留最多10个高能片段
+python3 .claude/skills/video-narrator/scripts/analyze_energy.py input.mp4 output/energy.json --max-clips 10
+
+# 指定能量阈值（百分位，越高越严格）
+python3 .claude/skills/video-narrator/scripts/analyze_energy.py input.mp4 output/energy.json --threshold 80
 ```
 
-**或者使用 Python 音频分析：**
-
-```python
-import subprocess
-import numpy as np
-
-def analyze_audio_energy(video_path, output_path="energy.txt"):
-    """分析视频音频能量，输出每个时间段的能量值"""
-
-    # 使用 ffprobe 获取音频流信息
-    cmd = [
-        'ffprobe', '-v', 'quiet',
-        '-print_format', 'json',
-        '-show_format', '-show_streams',
-        video_path
-    ]
-
-    # 使用 ffmpeg 提取音频并分析
-    cmd = [
-        'ffmpeg', '-i', video_path,
-        '-af', 'compand=gain=-6,astats=metadata=1:reset=1',
-        '-f', 'null', '-'
-    ]
-
-    result = subprocess.run(cmd, capture_output=True, text=True)
-
-    # 解析输出，提取 RMS 能量值
-    # 返回: [(timestamp, energy), ...]
-    energies = []
-    for line in result.stderr.split('\n'):
-        if 'RMS_level' in line:
-            # 解析时间和能量值
-            pass
-
-    return energies
-```
-
-**精彩片段识别逻辑：**
-
-1. 将视频按固定时间窗口分割（如 3-5 秒一段）
-2. 计算每段的平均音频能量
-3. 筛选能量最高的片段（通常是高潮部分）
-4. 合并相邻高能量片段
-5. 输出片段时间戳列表
+**【禁止行为】**
+- ❌ 禁止自己编写 Python/JS 代码进行音频分析
+- ❌ 禁止手动使用 ffmpeg 命令分析能量
+- ✅ 只能使用预设的 `analyze_energy.py` 脚本
 
 **重要：默认保留所有识别出的高能片段，不进行数量限制！**
-
-```python
-def find_highlight_segments(energies, threshold_percentile=75, max_clips=None):
-    """从音频能量数据中识别高能量片段
-
-    Args:
-        energies: 音频能量数据列表
-        threshold_percentile: 能量阈值百分位（默认75，即能量最高的25%）
-        max_clips: 最大保留片段数，None表示保留全部
-
-    Returns:
-        高能量片段列表
-    """
-
-    # 计算能量阈值（高于 75% 的片段）
-    threshold = np.percentile(energies, threshold_percentile)
-
-    # 标记高能量区域
-    highlight_timestamps = []
-    for i, (timestamp, energy) in enumerate(energies):
-        if energy >= threshold:
-            highlight_timestamps.append(timestamp)
-
-    # 合并相邻片段（间隔小于 3 秒）
-    merged = merge_adjacent_segments(highlight_timestamps, gap_threshold=3)
-
-    # 过滤过短片段（小于 5 秒）
-    final_segments = [s for s in merged if s['duration'] >= 5]
-
-    # 按能量排序（从高到低）
-    final_segments.sort(key=lambda x: x['avg_energy'], reverse=True)
-
-    # 如果设置了最大片段数限制，则截取
-    if max_clips is not None and max_clips > 0:
-        final_segments = final_segments[:max_clips]
-
-    return final_segments
-```
 
 ### 步骤 4: 纯音乐视频解说文案（特殊处理）
 
 **仅适用于步骤 2.5 判定为纯音乐的视频！**
 
-如果判定为纯音乐，解说文案应该描述音乐情绪和结构，而不是基于字幕内容：
+如果判定为纯音乐，解说文案应该描述音乐情绪和结构，而不是基于字幕内容。
 
+**【强制】使用预设脚本生成纯音乐解说文案：**
+
+可以使用 `generate_narrator.py` 脚本生成音乐解说文案模板，然后根据实际情况调整：
+
+```bash
+python3 .claude/skills/video-narrator/scripts/generate_narrator.py \
+    --clips output/energy.json \
+    --srt output/subtitles/full.srt \
+    --output output/subtitles/narrator.srt
 ```
-这是一首纯音乐视频，没有对话或旁白。
 
-音乐结构分析：
-- 00:00 - 00:48: 前奏/引入部分，情绪渐进
-- 00:48 - 01:42: 第一次副歌，能量上升
-- 01:56 - 02:13: 高潮段落，情绪最高点
-- 02:17 - 02:52: 尾声，情感回落
-
-建议解说文案：
-"这是一段充满活力的音乐..."
-```
+**【禁止】**
+- ❌ 禁止自己编写音乐分析代码
+- ❌ 禁止手动生成音乐结构分析文案
 
 ### 步骤 5: 视频剪切
 
@@ -824,6 +726,24 @@ python3 ${SCRIPT_DIR}/generate_edl.py output/manifest.json output/timeline/proje
 2. Whisper 模型下载一次后会缓存
 3. 建议确保磁盘空间充足
 4. 视频片段命名按时间顺序排列
-5. **AI 文案生成零配置** - 直接利用当前 LLM 能力，无需 API Key
+5. **【强制】所有操作必须使用预设脚本** - 禁止自己编写代码或动态生成脚本执行
 6. **纯音乐识别** - 自动检测并使用音频能量分析替代语音识别
-7. 识别语音、剪切视频、生成XML 文件等操作必须使用SKILL 自带脚本执行
+
+## 【强制】禁止行为清单
+
+以下行为**严格禁止**：
+
+- ❌ 禁止自己编写 Python/JS/Bash 脚本进行任何分析
+- ❌ 禁止手动调用 ffmpeg 进行音频能量分析
+- ❌ 禁止将提示词手动发送给 LLM 并自己填入结果
+- ❌ 禁止修改或扩展预设脚本的功能
+- ❌ 禁止创建新的临时脚本文件
+
+## 【强制】允许行为
+
+以下行为**允许**：
+
+- ✅ 只能使用预设脚本的参数和功能
+- ✅ 只能使用预设脚本的输入输出格式
+- ✅ 只能查看预设脚本生成的提示词文件（供调试参考）
+- ✅ 只能使用已存在的分析结果文件（analysis.json、energy.json 等）
