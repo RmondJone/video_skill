@@ -1,19 +1,21 @@
 ---
 name: video-narrator
-description: 视频解说生成器 - 用户@出要处理的视频，自动进行语音识别、AI解说文案生成、视频片段剪切，导出PR可编辑的文件（视频片段+SRT字幕+XML时间线）。当用户提到视频解说、视频剪辑、字幕生成、视频切片、语音转文字、需要导出PR/Adobe Premiere文件时使用此技能。
+description: 视频解说生成器 - 用户粘贴视频路径即可自动处理，进行语音识别、AI解说文案生成、视频片段剪切，导出PR可编辑的文件（视频片段+SRT字幕+XML时间线）。当用户提供视频文件路径、提到视频解说、视频剪辑、字幕生成、视频切片、语音转文字、需要导出PR/Adobe Premiere文件时使用此技能。
 ---
 
 # 视频解说生成器技能
 
-用户 @ 出本地视频文件路径，自动完成语音识别、AI 解说文案生成、视频片段剪切，导出 PR 可编辑的文件。
+用户提供本地视频文件路径，自动完成语音识别、AI 解说文案生成、视频片段剪切，导出 PR 可编辑的文件。
 
 ## 触发条件
 
 用户满足以下任一条件时使用此技能：
-- 用户 @ 出视频文件并要求生成解说
+- 用户粘贴了本地视频文件路径（无需@符号）
 - 用户提到"视频解说"、"语音转文字"、"字幕生成"
 - 用户要求"视频切片"、"导出PR文件"
 - 用户需要将视频导出为 Premiere/Final Cut 可编辑的格式
+
+**注意：无需用户使用 @ 触发，只需用户提供视频文件路径即可自动识别并处理。**
 
 ## 输入要求
 
@@ -39,13 +41,103 @@ which ffmpeg || brew install ffmpeg
 python3 -c "import faster_whisper" 2>/dev/null || pip install faster-whisper
 ```
 
-### 步骤 2: 语音识别 (ASR)（自动执行）
+### 步骤 1.5: 检测字幕是否存在（新增）
 
-**自动使用 faster-whisper 识别视频中的语音，无需用户同意：**
+**自动检测：检测字幕文件是否已存在**
 
+在执行语音识别之前，自动检测目标输出目录是否已存在 `full.srt` 字幕文件：
+
+**检测逻辑：**
+```python
+import os
+
+def check_subtitle_exists(output_dir):
+    """检查字幕文件是否已存在"""
+    subtitle_path = os.path.join(output_dir, "subtitles", "full.srt")
+    return os.path.exists(subtitle_path)
+```
+
+**检测路径：**
+- 默认检测路径：`output/subtitles/full.srt`
+- 如果用户指定了输出目录，则检测 `用户指定目录/subtitles/full.srt`
+
+**处理方式：**
+
+1. **字幕不存在**：正常执行步骤 2（语音识别）
+
+2. **字幕已存在**：询问用户选择
+   ```
+   检测到已有字幕文件: output/subtitles/full.srt
+
+   请选择处理方式：
+   1. 跳过识别（使用现有字幕）
+   2. 重新识别（覆盖现有字幕）
+   ```
+
+**用户交互示例：**
+```
+检测到已有字幕文件: output/subtitles/full.srt
+
+请选择处理方式：
+1. 跳过识别 - 使用现有字幕继续后续步骤（推荐）
+2. 重新识别 - 覆盖现有字幕重新进行语音识别
+3. 指定新目录 - 指定其他输出目录
+
+请回复数字或选项：
+```
+
+**跳过识别时：**
+- 直接使用现有 `full.srt` 字幕文件
+- 继续执行后续步骤（剧情分析、解说文案生成、视频剪切等）
+
+**参数支持（可选）：**
+
+用户也可以通过参数直接指定处理方式：
+
+| 参数 | 说明 |
+|------|------|
+| `--skip-asr` | 直接跳过语音识别，使用现有字幕 |
+| `--force-asr` | 强制重新执行语音识别 |
+
+**命令示例：**
 ```bash
-# 自动运行语音识别脚本
-python3 .claude/skills/video-narrator/scripts/transcribe.py input.mp4 output.srt --model base
+# 使用 --skip-if-exists 参数自动跳过已有字幕
+python3 .claude/skills/video-narrator/scripts/transcribe.py input.mp4 output/subtitles/full.srt --skip-if-exists
+```
+
+### 步骤 2: 语音识别 (ASR)
+
+**需要用户交互：选择 Whisper 模型**
+
+在运行语音识别之前，必须先询问用户选择模型。如果用户未选择或选择"默认"，使用 **small** 模型。
+
+**Whisper 模型选择（必须展示给用户）：**
+
+| 模型 | 精准度 | 预估时间（10分钟视频） | 推荐场景 |
+|------|--------|----------------------|----------|
+| tiny | ★☆☆☆☆ 基础 | ~30秒 | 快速测试 |
+| base | ★★☆☆☆ 较好 | ~1分钟 | 速度快，精度一般 |
+| **small** | ★★★☆☆ 良好 | ~2分钟 | **默认推荐**，平衡速度和精度 |
+| medium | ★★★★☆ 优秀 | ~5分钟 | 需要更高精度 |
+| large | ★★★★★ 最佳 | ~15分钟 | 最高精度，速度最慢 |
+
+**询问用户示例：**
+```
+请选择语音识别模型（直接回复数字或模型名）：
+1. small (默认) - 推荐，平衡速度和精度
+2. base - 速度快，精度一般
+3. medium - 需要更高精度
+4. large - 最高精度，速度最慢
+5. tiny - 快速测试
+```
+
+**用户选择后执行：**
+```bash
+# 使用用户选择的模型运行语音识别脚本
+python3 .claude/skills/video-narrator/scripts/transcribe.py input.mp4 output.srt --model <选择的模型>
+
+# 默认使用 small 模型
+python3 .claude/skills/video-narrator/scripts/transcribe.py input.mp4 output.srt --model small
 ```
 
 输出：
@@ -78,75 +170,169 @@ is_instrumental = (
 )
 ```
 
-### 步骤 3: 根据类型选择处理方式
+### 步骤 3: 情况 A - 有对话/旁白视频处理流程
 
-#### 情况 A: 有旁白/对话 → 完整流程
+**重要规则：**
+- **有对话/旁白的视频**：禁用音频能量分析！必须基于字幕内容分析
+- **纯音乐/无旁白视频**：使用音频能量分析
 
-当检测到视频包含对话/旁白时，执行以下完整流程：
+#### 情况 A: 有旁白/对话视频（必须按顺序执行）
 
-**步骤 3.1: LLM 分析字幕生成剧情摘要**
+当检测到视频包含对话/旁白时（识别片段数 >= 10 或文字数 >= 50），执行以下流程：
 
-将完整字幕发送给当前 LLM，让它分析并生成：
+**步骤 3.1: 【必须】使用 generate_story_summary.py 脚本生成剧情摘要和关键情节分析**
 
-1. **视频大致剧情/内容摘要**（100-500字）
-2. **关键情节节点**（每个节点包含：时间点、事件描述、重要程度）
+【关键】必须使用 `generate_story_summary.py` 脚本生成提示词，然后发送给 LLM 分析：
 
-```python
-# 发送给 LLM 的提示词
-prompt = f"""
-请分析以下视频字幕，生成：
+```bash
+# 运行剧情摘要和关键情节分析脚本
+python3 .claude/skills/video-narrator/scripts/generate_story_summary.py \
+    --srt output/subtitles/full.srt \
+    --output output/analysis.json
 
-1. 视频大致剧情/内容摘要（200字左右）
+# 强制分段模式（无论视频长短都分多段处理）
+python3 .claude/skills/video-narrator/scripts/generate_story_summary.py \
+    --srt output/subtitles/full.srt \
+    --output output/analysis.json \
+    --mode long
 
-2. 关键情节节点（按时间顺序列出重要事件）：
-   - 时间点
-   - 事件描述
-   - 重要程度（高/中/低）
-
-字幕内容：
-{字幕全文}
-"""
+# 短视频模式（不分段）
+python3 .claude/skills/video-narrator/scripts/generate_story_summary.py \
+    --srt output/subtitles/full.srt \
+    --output output/analysis.json \
+    --mode short
 ```
 
-**步骤 3.2: 根据剧情筛选精彩片段**
+**分段处理说明（针对长视频 > 15分钟）：**
 
-基于 LLM 分析出的关键情节节点，筛选对应的视频片段：
+脚本支持自动分段处理长视频，解决 LLM 上下文长度限制问题：
 
+- **自动检测**：当视频时长超过 15 分钟时，自动将字幕分为多个段落
+- **分段模式** (`--mode` 参数)：
+  - `auto` (默认)：自动检测，超过 15 分钟自动分段
+  - `short`：强制不分段，适用于短视频
+  - `long`：强制分段，无论视频多长都分为多段处理
+
+**脚本输出：**
+
+短视频（< 15分钟）：
+- `output/analysis_prompt.txt` - 发送给 LLM 的提示词
+- `output/analysis.json` - 分析结果占位文件
+
+长视频（> 15分钟）：
+- `output/analysis_prompt_p1.txt` - 第一分段提示词
+- `output/analysis_prompt_p2.txt` - 第二分段提示词（如果需要）
+- `output/analysis_prompt_summary.txt` - 汇总提示词（包含所有分段的时间点）
+- `output/analysis.json` - 最终分析结果
+
+**分段分析工作流程（长视频）：**
+
+1. 脚本自动检测视频时长，生成 1-3 个分段提示词
+2. 将每个分段提示词发送给 LLM，获取该时段的关键情节
+3. 将所有分段的分析结果汇总，生成完整连贯的剧情分析
+4. 将最终结果填入 `analysis.json`
+
+脚本会生成提示词，包含：
+1. 视频大致剧情/内容摘要要求（200字左右）
+2. 关键情节节点格式要求（时间点 | 事件描述 | 重要程度）
+
+**步骤 3.2: 【必须】LLM 分析并输出关键情节节点**
+
+将生成的提示词（`analysis_prompt.txt`）发送给当前 LLM，让它分析并生成：
+
+1. **视频大致剧情/内容摘要**（100-500字）
+2. **关键情节节点**（每个节点包含：时间点、事件描述、重要程度高/中/低）
+
+LLM 输出格式要求：
+```
+1. 剧情摘要：xxxxx
+
+2. 关键情节节点：
+00:05:30 | 主角发现重要线索 | 高
+00:10:15 | 发生激烈冲突 | 高
+00:15:45 | 情节转折 | 中
+...
+```
+
+**步骤 3.3: 【必须】根据 LLM 输出的关键情节创建片段**
+
+手动将 LLM 输出的关键情节节点填入 `analysis.json`，格式如下：
+
+```json
+{
+  "analysis_time": "2026-01-01T00:00:00",
+  "video_type": "dialogue",
+  "key_moments": [
+    {
+      "time": "00:05:30",
+      "description": "主角发现重要线索",
+      "importance": "高",
+      "start_seconds": 330
+    },
+    {
+      "time": "00:10:15",
+      "description": "发生激烈冲突",
+      "importance": "高",
+      "start_seconds": 615
+    }
+  ],
+  "clips": []
+}
+```
+
+然后基于这些关键情节节点筛选视频片段：
 1. 筛选"重要程度"为"高"的片段
-2. 筛选"重要程度"为"中"的片段作为补充
+2. 如需补充，可筛选"重要程度"为"中"的片段
 3. 每个片段前后扩展 2-5 秒作为缓冲
+4. **【关键】必须按时间顺序排序**，不是按能量排序
 
-**步骤 3.3: 生成解说文案字幕**
+**步骤 3.4: 【必须】使用 generate_narrator.py 脚本生成解说文案**
 
-根据筛选出的视频片段和原始字幕，生成解说文案：
+必须使用 `generate_narrator.py` 脚本生成提示词，然后发送给 LLM 生成解说文案：
 
-```python
-# 发送给 LLM 的提示词
-prompt = f"""
-基于以下信息，为视频片段生成解说文案：
+```bash
+# 运行解说文案生成脚本
+python3 .claude/skills/video-narrator/scripts/generate_narrator.py \
+    --clips output/analysis.json \
+    --srt output/subtitles/full.srt \
+    --output output/subtitles/narrator.srt
+```
 
-1. 视频剧情摘要：{剧情摘要}
+脚本输出：
+- `output/subtitles/narrator_prompt.txt` - 发送给 LLM 的解说文案生成提示词
 
-2. 视频片段列表：
-{片段时间点列表}
+脚本会生成提示词，包含：
+1. 视频剧情摘要（从 analysis.json 中读取）
+2. 所有片段的时间范围和描述
+3. 每个片段相关的原始字幕
+4. 输出格式要求
 
-3. 原始字幕：{原始字幕}
+**步骤 3.5: 【必须】LLM 生成解说文案**
 
-要求：
-- 每个片段生成一段解说文案
-- 解说文案要简洁、生动、符合原视频内容
-- 保留时间点信息对应
-- 输出格式：时间点 → 解说文案
-"""
+将生成的提示词（`narrator_prompt.txt`）发送给当前 LLM，让它根据以下要求生成解说文案：
+
+```
+请根据以下信息，为每个视频片段生成解说文案：
+
+1. 首先分析完整字幕，生成视频剧情摘要（200字左右）
+
+2. 然后为每个片段生成1-3句解说文案，要求：
+   - 简洁、生动、符合原视频内容
+   - 保持与原视频内容的相关性
+   - 输出格式：
+     片段1 | 00:00:10-00:00:25 | [解说文案]
+     片段2 | 00:01:30-00:01:45 | [解说文案]
 ```
 
 **输出：**
 - `subtitles/full.srt` - 原始完整字幕
 - `subtitles/narrator.srt` - AI 解说文案字幕
 
-#### 情况 B: 纯音乐/无旁白 → 音频能量分析
+### 步骤 3 续: 情况 B - 纯音乐/无旁白视频处理流程
 
-当判定为纯音乐时，使用**音频能量分析**识别精彩片段：
+当判定为纯音乐时（识别片段数 < 10 或 文字数 < 50），使用**音频能量分析**识别精彩片段：
+
+**重要：此方法仅用于纯音乐视频！有对话视频禁止使用！**
 
 **方法：使用 FFmpeg 分析音频响度**
 
@@ -240,59 +426,11 @@ def find_highlight_segments(energies, threshold_percentile=75, max_clips=None):
     return final_segments
 ```
 
-### 步骤 4: AI 解说文案生成
+### 步骤 4: 纯音乐视频解说文案（特殊处理）
 
-**使用脚本生成解说文案提示词，然后使用当前 LLM 会话生成最终文案。**
+**仅适用于步骤 2.5 判定为纯音乐的视频！**
 
-#### 4.1 生成解说文案提示词
-
-```bash
-# 使用 generate_narrator.py 生成提示词
-python3 .claude/skills/video-narrator/scripts/generate_narrator.py \
-    --clips output/manifest.json \
-    --srt output/subtitles/full.srt \
-    --output output/subtitles/narrator.srt
-```
-
-这会生成一个提示词文件 `narrator_prompt.txt`，包含：
-- 视频剧情摘要占位符
-- 所有片段的时间范围
-- 每个片段相关的原始字幕
-
-#### 4.2 调用 LLM 生成解说文案
-
-将生成的提示词发送给当前 LLM，让它根据以下要求生成解说文案：
-
-```
-请根据以下信息，为每个视频片段生成解说文案：
-
-1. 首先分析完整字幕，生成视频剧情摘要（200字左右）
-
-2. 然后为每个片段生成1-3句解说文案，要求：
-   - 简洁、生动、符合原视频内容
-   - 保持与原视频内容的相关性
-   - 输出格式：
-     片段1 | 00:00:10-00:00:25 | [解说文案]
-     片段2 | 00:01:30-00:01:45 | [解说文案]
-```
-
-#### 4.3 创建解说文案 SRT 文件
-
-将 LLM 生成的解说文案保存为 SRT 格式：
-
-```srt
-1
-00:00:10,000 --> 00:00:25,000
-这是第一个片段的解说文案
-
-2
-00:01:30,000 --> 00:01:45,000
-这是第二个片段的解说文案
-```
-
-**纯音乐视频的解说文案：**
-
-如果步骤 2.5 判定为纯音乐，解说文案应该描述音乐情绪和结构：
+如果判定为纯音乐，解说文案应该描述音乐情绪和结构，而不是基于字幕内容：
 
 ```
 这是一首纯音乐视频，没有对话或旁白。
@@ -518,7 +656,7 @@ FCM: NON-DROP FRAME
 
 ### 示例 1: 有旁白的视频
 ```
-用户: @处理一下这个视频 /Users/guohanlin/videos/demo.mp4
+用户: 处理一下这个视频 /Users/guohanlin/videos/demo.mp4
 
 技能响应:
 1. 正在验证视频文件...
@@ -534,7 +672,7 @@ FCM: NON-DROP FRAME
 
 ### 示例 2: 纯音乐视频（新增）
 ```
-用户: @处理一下这个音乐视频 /Users/guohanlin/videos/music.mp4
+用户: 处理一下这个音乐视频 /Users/guohanlin/videos/music.mp4
 
 技能响应:
 1. 正在验证视频文件...
@@ -552,12 +690,12 @@ FCM: NON-DROP FRAME
 
 ### 示例 3: 指定输出目录
 ```
-用户: @处理 /Users/guohanlin/videos/demo.mp4，输出到 /Users/guohanlin/output/
+用户: 处理 /Users/guohanlin/videos/demo.mp4，输出到 /Users/guohanlin/output/
 ```
 
 ### 示例 4: 自定义片段数量
 ```
-用户: @处理 /Users/guohanlin/videos/demo.mp4，保留10个片段
+用户: 处理 /Users/guohanlin/videos/demo.mp4，保留10个片段
 
 技能响应:
 1. 正在验证环境...
@@ -572,7 +710,7 @@ FCM: NON-DROP FRAME
 
 ### 示例 5: 保留全部片段
 ```
-用户: @处理 /Users/guohanlin/videos/demo.mp4，保留全部片段
+用户: 处理 /Users/guohanlin/videos/demo.mp4，保留全部片段
 
 技能响应:
 1. 正在验证环境...
@@ -595,19 +733,22 @@ FCM: NON-DROP FRAME
 |------|------|--------|
 | --max-clips | 最大保留片段数量，0或省略表示保留全部 | 全部保留 |
 | --energy-threshold | 音频能量阈值(百分位)，越高越严格 | 75 |
+| --skip-asr | 跳过语音识别，使用现有字幕 | 否 |
+| --force-asr | 强制重新执行语音识别 | 否 |
 
 **使用示例：**
 ```
-用户: @处理视频 /Users/guohanlin/videos/demo.mp4，保留10个片段
-用户: @处理视频 /Users/guohanlin/videos/demo.mp4，保留全部片段
-用户: @处理视频 /Users/guohanlin/videos/demo.mp4 --max-clips 5
+用户: 处理视频 /Users/guohanlin/videos/demo.mp4，保留10个片段
+用户: 处理视频 /Users/guohanlin/videos/demo.mp4，保留全部片段
+用户: 处理视频 /Users/guohanlin/videos/demo.mp4 --max-clips 5
 ```
 
 ### 环境变量 (可选)
 
 | 变量名 | 必填 | 说明 | 默认值 |
 |--------|------|------|--------|
-| WHISPER_MODEL | 否 | Whisper 模型大小 | base |
+| WHISPER_MODEL | 否 | Whisper 模型大小 (tiny/base/small/medium/large) | **small** |
+| CUDA_ENABLED | 否 | 是否启用 GPU 加速 (true/false) | auto (自动检测) |
 | MIN_CLIP_DURATION | 否 | 片段最小时长(秒) | 5 |
 | MAX_CLIP_DURATION | 否 | 片段最大时长(秒) | 120 |
 | ENERGY_THRESHOLD | 否 | 音频能量阈值(百分位) | 75 |
@@ -635,11 +776,12 @@ AI 文案生成直接使用当前 Claude 会话的能力，无需外部 API。
 技能提供以下辅助脚本：
 
 1. **transcribe.py** - 语音识别脚本
-2. **cut_video.py** - 视频剪切脚本
-3. **generate_xml.py** - Premiere XML 生成脚本
-4. **generate_edl.py** - EDL 时间线生成脚本
-5. **analyze_energy.py** - 音频能量分析脚本（纯音乐视频）
-6. **generate_narrator.py** - 解说文案生成脚本（有对话视频）
+2. **generate_story_summary.py** - 剧情摘要和关键情节分析脚本（有对话视频）
+3. **cut_video.py** - 视频剪切脚本
+4. **generate_xml.py** - Premiere XML 生成脚本
+5. **generate_edl.py** - EDL 时间线生成脚本
+6. **analyze_energy.py** - 音频能量分析脚本（纯音乐视频）
+7. **generate_narrator.py** - 解说文案生成脚本（有对话视频）
 
 **脚本完整路径：**
 ```bash
@@ -649,6 +791,11 @@ SCRIPT_DIR=".claude/skills/video-narrator/scripts"
 # 语音识别
 python3 ${SCRIPT_DIR}/transcribe.py input.mp4 output.srt
 
+# 剧情摘要和关键情节分析（用于有对话视频）
+python3 ${SCRIPT_DIR}/generate_story_summary.py \
+    --srt output/subtitles/full.srt \
+    --output output/analysis.json
+
 # 音频能量分析（默认保留全部片段）
 python3 ${SCRIPT_DIR}/analyze_energy.py input.mp4 energy.json
 
@@ -657,7 +804,7 @@ python3 ${SCRIPT_DIR}/analyze_energy.py input.mp4 energy.json --max-clips 10
 
 # 生成解说文案提示词（用于有对话的视频）
 python3 ${SCRIPT_DIR}/generate_narrator.py \
-    --clips output/manifest.json \
+    --clips output/analysis.json \
     --srt output/subtitles/full.srt \
     --output output/subtitles/narrator.srt
 

@@ -24,18 +24,52 @@ def format_time(seconds):
     millis = int((seconds % 1) * 1000)
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
+def check_cuda_available():
+    """检查 CUDA 是否可用"""
+    try:
+        import torch
+        return torch.cuda.is_available()
+    except ImportError:
+        return False
+
 def main():
     parser = argparse.ArgumentParser(description='语音识别 - 将视频语音转为 SRT 字幕')
     parser.add_argument('input', help='输入视频文件路径')
     parser.add_argument('output', help='输出 SRT 文件路径')
-    parser.add_argument('--model', default='base', choices=['tiny', 'base', 'small', 'medium', 'large'],
-                        help='Whisper 模型大小 (default: base)')
-    parser.add_argument('--device', default='cpu', choices=['cpu', 'cuda'],
-                        help='运行设备 (default: cpu)')
+    parser.add_argument('--model', default='small', choices=['tiny', 'base', 'small', 'medium', 'large'],
+                        help='Whisper 模型大小 (default: small, 推荐 small 以平衡速度和精度)')
+    parser.add_argument('--device', default=None, choices=['cpu', 'cuda', None],
+                        help='运行设备 (default: auto, 自动选择可用设备)')
     parser.add_argument('--compute-type', default='int8', choices=['int8', 'int8_float16', 'float16'],
                         help='计算类型 (default: int8)')
+    parser.add_argument('--skip-if-exists', action='store_true',
+                        help='如果输出文件已存在则跳过识别')
 
     args = parser.parse_args()
+
+    # 检查是否需要跳过
+    if args.skip_if_exists and os.path.exists(args.output):
+        print(f"✓ 检测到已有字幕文件: {args.output}")
+        print("  使用 --skip-if-exists 参数，跳过语音识别")
+        return
+
+    # 自动检测设备
+    if args.device is None:
+        if check_cuda_available():
+            args.device = 'cuda'
+            print("✓ 检测到 CUDA GPU，将使用 GPU 加速")
+        else:
+            args.device = 'cpu'
+            print("○ 未检测到 CUDA，将使用 CPU")
+    elif args.device == 'cuda' and not check_cuda_available():
+        print("⚠ 指定了 cuda 但未检测到 GPU，回退到 CPU")
+        args.device = 'cpu'
+
+    # 根据设备自动选择最优 compute_type
+    if args.compute_type == 'int8':  # 用户未指定时
+        if args.device == 'cuda':
+            args.compute_type = 'float16'
+            print("○ GPU 模式已优化为 float16 计算类型")
 
     if not os.path.exists(args.input):
         print(f"错误: 输入文件不存在: {args.input}", file=sys.stderr)
