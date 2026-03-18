@@ -241,8 +241,9 @@ def generate_segment_prompt(part_info):
    - 情节的发展变化
 
 2. 关键情节节点（按时间顺序列出重要事件，至少8个，【每个分段必须至少列出8个】）：
-   - 格式：时间点 | 事件描述 | 重要程度（高/中/低）
-   - 例如：00:05:30 | 主角发现重要线索 | 高
+   - 格式：开始时间 --> 结束时间 | 事件描述 | 重要程度（高/中/低）
+   - 例如：00:05:20 --> 00:06:10 | 主角发现重要线索 | 高
+   - 【重要】必须同时提供开始时间和结束时间！描述的剧情内容必须发生在这个时间范围内！
    - 每个情节都要有具体的场景描述
    - 【关键】请务必列出足够多的重要事件，不要遗漏！
 
@@ -270,7 +271,10 @@ def generate_summary_prompt(all_moments, total_duration):
         all_moments_text += f"\n=== 第 {part_num} 部分 ===\n"
         if moments:
             for m in moments:
-                all_moments_text += f"{m['time']} | {m['description']} | {m['importance']}\n"
+                # 使用 start 和 end 字段，如果不存在则使用 time 字段兼容
+                start_time = m.get('start', m.get('time', ''))
+                end_time = m.get('end', start_time)
+                all_moments_text += f"{start_time} --> {end_time} | {m['description']} | {m['importance']}\n"
         else:
             all_moments_text += "（该部分无关键情节）\n"
 
@@ -293,7 +297,9 @@ def generate_summary_prompt(all_moments, total_duration):
    - 重要的对话内容要点
 
 2. 完整关键情节节点（按时间顺序排列，至少20个，【必须达到20个以上】）：
-   - 格式：时间点 | 事件描述 | 重要程度（高/中/低）
+   - 格式：开始时间 --> 结束时间 | 事件描述 | 重要程度（高/中/低）
+   - 例如：00:05:20 --> 00:06:10 | 主角发现重要线索 | 高
+   - 【重要】必须同时提供开始时间和结束时间！描述的剧情内容必须发生在这个时间范围内！
    - 每个情节都要有具体的场景描述
    - 【关键】47分钟的视频至少需要20个关键情节，请务必列出足够多的重要事件！
    - 按时间顺序列出所有重要情节，不要遗漏！
@@ -337,8 +343,9 @@ def generate_prompt_for_llm(segments, max_chars=200000):
    - 说明故事的起承转合
 
 2. 关键情节节点（按时间顺序列出重要事件，至少20个，【必须达到20个以上】）：
-   - 时间点 | 事件描述 | 重要程度（高/中/低）
-   - 例如：00:05:30 | 主角发现重要线索 | 高
+   - 格式：开始时间 --> 结束时间 | 事件描述 | 重要程度（高/中/低）
+   - 例如：00:05:20 --> 00:06:10 | 主角发现重要线索 | 高
+   - 【重要】必须同时提供开始时间和结束时间！描述的剧情内容必须发生在这个时间范围内！
    - 每个情节都要有具体的场景描述
    - 【关键】请务必列出足够多的重要事件，不要遗漏！
 
@@ -360,20 +367,39 @@ def parse_llm_key_moments(llm_output):
         if not line:
             continue
 
-        # 尝试解析格式：时间点 | 描述 | 重要程度
+        # 尝试解析格式：开始时间 --> 结束时间 | 描述 | 重要程度
         parts = line.split('|')
         if len(parts) >= 3:
-            time_str = parts[0].strip()
+            time_range = parts[0].strip()
             description = parts[1].strip()
             importance = parts[2].strip()
 
-            # 验证时间格式
-            if re.match(r'\d{2}:\d{2}:\d{2}', time_str):
+            # 解析时间范围格式：00:05:20 --> 00:06:10
+            if '-->' in time_range:
+                time_parts = time_range.split('-->')
+                if len(time_parts) == 2:
+                    start_time = time_parts[0].strip()
+                    end_time = time_parts[1].strip()
+
+                    # 验证时间格式
+                    if re.match(r'\d{2}:\d{2}:\d{2}', start_time) and re.match(r'\d{2}:\d{2}:\d{2}', end_time):
+                        key_moments.append({
+                            'start': start_time,
+                            'end': end_time,
+                            'description': description,
+                            'importance': importance,  # 高/中/低
+                            'start_seconds': time_to_seconds(start_time),
+                            'end_seconds': time_to_seconds(end_time)
+                        })
+            # 兼容旧格式：时间点 | 描述 | 重要程度
+            elif re.match(r'\d{2}:\d{2}:\d{2}', time_range):
                 key_moments.append({
-                    'time': time_str,
+                    'start': time_range,
+                    'end': time_range,
                     'description': description,
-                    'importance': importance,  # 高/中/低
-                    'start_seconds': time_to_seconds(time_str)
+                    'importance': importance,
+                    'start_seconds': time_to_seconds(time_range),
+                    'end_seconds': time_to_seconds(time_range)
                 })
 
     return key_moments

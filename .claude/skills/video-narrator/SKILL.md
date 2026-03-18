@@ -326,7 +326,7 @@ python3 .claude/skills/video-narrator/scripts/generate_story_summary.py \
 
 **步骤 3.2: 【必须】使用 analysis.json 中的关键情节创建片段**
 
-检查脚本生成的 `analysis.json` 文件，使用其中的关键情节节点：
+检查脚本生成的 `analysis.json` 文件，使用其中的关键情节节点（必须包含 start 和 end 时间）：
 
 ```json
 {
@@ -334,16 +334,16 @@ python3 .claude/skills/video-narrator/scripts/generate_story_summary.py \
   "video_type": "dialogue",
   "key_moments": [
     {
-      "time": "00:05:30",
+      "start": "00:05:20",
+      "end": "00:06:10",
       "description": "主角发现重要线索",
-      "importance": "高",
-      "start_seconds": 330
+      "importance": "高"
     },
     {
-      "time": "00:10:15",
+      "start": "00:10:05",
+      "end": "00:10:55",
       "description": "发生激烈冲突",
-      "importance": "高",
-      "start_seconds": 615
+      "importance": "高"
     }
   ],
   "clips": []
@@ -874,10 +874,11 @@ python3 ${SCRIPT_DIR}/generate_edl.py output/manifest.json output/timeline/proje
 
   "key_moments": [
     {
-      "time": "00:00:00",
+      "start": "00:00:00",
+      "end": "00:00:45",
       "description": "事件简短描述",
       "importance": "高/中/低",
-      "detailed_description": "详细的事件描述，包括具体场景、人物动作、对话内容、情绪等。至少50-100字。",
+      "detailed_description": "详细的事件描述，包括具体场景、人物动作、对话内容、情绪等。至少50-100字。**【重要】详细描述的剧情内容必须发生在 start 和 end 指定的时间范围内！**",
       "scene": "场景位置"
     }
   ],
@@ -904,27 +905,30 @@ python3 ${SCRIPT_DIR}/generate_edl.py output/manifest.json output/timeline/proje
 
 | 字段 | 必须 | 说明 |
 |------|------|------|
-| time | ✅ | 时间点格式 HH:MM:SS |
+| start | ✅ | **开始时间**，格式 HH:MM:SS，表示该情节片段的开始时间 |
+| end | ✅ | **结束时间**，格式 HH:MM:SS，表示该情节片段的结束时间 |
 | description | ✅ | 简短描述，20-50字 |
 | importance | ✅ | 高/中/低，必须有高重要性节点 |
-| detailed_description | ✅ | **详细描述**，50-200字，包含完整场景信息 |
+| detailed_description | ✅ | **详细描述**，50-200字，包含完整场景信息。**【强制】剧情内容必须发生在 start 和 end 时间范围内！** |
 | scene | ✅ | 场景位置，如"RV内"、"医院"、"街头"等 |
 
 **实际示例（来自 test1.mp4）：**
 
 ```json
 {
-  "time": "00:09:34",
+  "start": "00:09:20",
+  "end": "00:10:05",
   "description": "Walter高中化学课堂 - 讲授手性化学（chirality）",
   "importance": "高",
-  "detailed_description": "Walter在高中讲授化学课，解释'手性'概念——像左右手一样，分子可以是镜像但不能重叠。他用沙利度胺为例，右旋异构体是良药，左旋异构体导致婴儿畸形。这为后续他用化学知识处理尸体做铺垫。",
+  "detailed_description": "Walter在高中讲授化学课，解释'手性'概念——像左右手一样，分子可以是镜像但不能重叠。他用沙利度胺为例，右旋异构体是良药，左旋异构体导致婴儿畸形。这为后续他用化学知识处理尸体做铺垫。**剧情发生在09分20秒到10分05秒之间。**",
   "scene": "高中教室"
 },
 {
-  "time": "00:44:11",
+  "start": "00:44:00",
+  "end": "00:44:45",
   "description": "Walter承认杀了人 - 'I cooked crystal meth and killed a man'",
   "importance": "高",
-  "detailed_description": "关键剧情！Walter终于承认他制毒（cooked crystal meth）而且杀了人。他告诉Jesse，告诉Skyler这些总比承认制毒和杀人要好。这是Walter彻底堕落的时刻。",
+  "detailed_description": "关键剧情！Walter终于承认他制毒（cooked crystal meth）而且杀了人。他告诉Jesse，告诉Skyler这些总比承认制毒和杀人要好。这是Walter彻底堕落的时刻。**剧情发生在44分00秒到44分45秒之间。**",
   "scene": "Walter家中"
 }
 ```
