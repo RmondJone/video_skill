@@ -38,7 +38,7 @@
 
 ```bash
 # 一键安装技能
-npx skills add RmondJone/video_skill --skill video-narrator --global
+npx skills add RmondJone/video_skill@video-narrator -g -y
 ```
 
 **方式二：手动安装**
@@ -57,7 +57,7 @@ ls ~/.claude/skills/video-narrator
 **方式三：通过 find-skills 这个技能安装**
 
 ```bash
-/find-skills 帮我安装 video-narrator这个技能
+/find-skills 帮我安装https://github.com/RmondJone/video_skill.git 里的video-narrator 这个技能
 ```
 
 > [!TIP]
