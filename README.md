@@ -38,7 +38,7 @@
 
 ```bash
 # 一键安装技能
-npx skills add RmondJone/video-skill --skill video-narrator --global
+npx skills add RmondJone/video_skill --skill video-narrator --global
 ```
 
 **方式二：手动安装**
