@@ -247,13 +247,13 @@ def select_clips_by_args(clips, user_input):
     return selected
 
 
-def select_key_clips(clips, max_clips=15, importance_weight=None):
+def select_key_clips(clips, max_clips=None, importance_weight=None):
     """
     选取关键片段
 
     Args:
         clips: 原始片段列表
-        max_clips: 最大保留片段数（默认15个，约10分钟解说）
+        max_clips: 最大保留片段数，None或0表示保留全部
         importance_weight: 重要性权重
 
     Returns:
@@ -305,7 +305,7 @@ def select_key_clips(clips, max_clips=15, importance_weight=None):
 
 
 def generate_narrator_srt(clips, full_srt_path, output_path, analysis_json_path=None,
-                          max_clips=20, clip_duration=30):
+                          max_clips=None, clip_duration=30):
     """
     生成解说文案 SRT 文件
 
@@ -316,7 +316,7 @@ def generate_narrator_srt(clips, full_srt_path, output_path, analysis_json_path=
         full_srt_path: 完整字幕路径
         output_path: 输出路径
         analysis_json_path: 剧情分析 JSON 路径
-        max_clips: 最大片段数（默认20个，约10分钟）
+        max_clips: 最大片段数，None或0表示保留全部
         clip_duration: 每个片段默认时长（秒，默认30秒）
     """
     # 加载完整字幕
@@ -385,12 +385,11 @@ SRT 字幕格式：
     prompt += f"【解说目标时长】: 约 {len(selected_clips) * clip_duration // 60} 分钟\n"
     prompt += f"【片段数量】: {len(selected_clips)} 个\n\n"
 
-    # 添加解说要点（从 key_moments 中提取）
+    # 添加解说要点（从 key_moments 中提取，不筛选 importance）
     if key_moments:
         prompt += "【关键情节参考】:\n"
-        for km in key_moments[:20]:
-            if km.get('importance') in ['极高', '高', 'high']:
-                prompt += f"- {km.get('time', '')} | {km.get('description', '')}\n"
+        for km in key_moments[:30]:  # 保留更多 key_moments
+            prompt += f"- {km.get('time', '')} | {km.get('description', '')}\n"
         prompt += "\n"
 
     # 添加片段信息
@@ -555,12 +554,11 @@ SRT 字幕格式：
     prompt += f"【解说目标时长】: 约 {len(selected_clips) * clip_duration // 60} 分钟\n"
     prompt += f"【片段数量】: {len(selected_clips)} 个\n\n"
 
-    # 添加解说要点（从 key_moments 中提取）
+    # 添加解说要点（从 key_moments 中提取，不筛选 importance）
     if key_moments:
         prompt += "【关键情节参考】:\n"
-        for km in key_moments:
-            if km.get('importance') in ['极高', '高', 'high']:
-                prompt += f"- {km.get('time', '')} | {km.get('description', '')}\n"
+        for km in key_moments[:50]:  # 保留更多 key_moments
+            prompt += f"- {km.get('time', '')} | {km.get('description', '')}\n"
         prompt += "\n"
 
     # 添加用户选择的片段信息
@@ -696,7 +694,7 @@ def main():
     parser.add_argument('--output', required=True, help='输出文件路径')
     parser.add_argument('--narrator', help='LLM 生成的解说文案（可选）')
     parser.add_argument('--analysis', help='剧情分析 JSON 文件（包含剧情摘要）')
-    parser.add_argument('--max-clips', type=int, default=20, help='最大片段数（默认20个，约10分钟）')
+    parser.add_argument('--max-clips', type=int, default=None, help='最大片段数（默认None，表示保留全部）')
     parser.add_argument('--clip-duration', type=int, default=30, help='每个片段默认时长秒数（默认30秒）')
     parser.add_argument('--interactive', action='store_true', help='交互式选择片段（列出所有关键片段供用户选择）')
     parser.add_argument('--select', type=str, help='通过命令行选择片段（可选，指定片段编号：1,3,5,8 或范围：1-10 或 all）')
@@ -714,14 +712,24 @@ def main():
         # 将 key_moments 转换为 clips 格式
         clips = []
         for km in manifest['key_moments']:
-            time_parts = km.get('time', '00:00:00').split(':')
+            # 优先使用 start 字段，如果没有则回退到 time 字段
+            start_time_str = km.get('start', km.get('time', '00:00:00'))
+            time_parts = start_time_str.split(':')
             if len(time_parts) == 3:
                 start_sec = int(time_parts[0]) * 3600 + int(time_parts[1]) * 60 + int(time_parts[2])
-                # 每个片段默认持续指定时长
-                end_sec = start_sec + args.clip_duration
+                # 优先使用 end 字段，如果没有则使用默认片段时长
+                end_time_str = km.get('end')
+                if end_time_str:
+                    end_parts = end_time_str.split(':')
+                    if len(end_parts) == 3:
+                        end_sec = int(end_parts[0]) * 3600 + int(end_parts[1]) * 60 + int(end_parts[2])
+                    else:
+                        end_sec = start_sec + args.clip_duration
+                else:
+                    end_sec = start_sec + args.clip_duration
                 clips.append({
-                    'start_time': km.get('time', '00:00:00'),
-                    'end_time': f"{int(end_sec // 3600):02d}:{int((end_sec % 3600) // 60):02d}:{int(end_sec % 60):02d}",
+                    'start_time': start_time_str,
+                    'end_time': end_time_str if end_time_str else f"{int(end_sec // 3600):02d}:{int((end_sec % 3600) // 60):02d}:{int(end_sec % 60):02d}",
                     'importance': km.get('importance', '中'),
                     'description': km.get('description', ''),
                     'detailed_description': km.get('detailed_description', '')
@@ -799,13 +807,10 @@ def main():
             try:
                 selected_clips = list_all_clips(clips, key_moments)
             except EOFError:
-                # 自动化环境无法获取输入时，自动选择高重要性及以上的片段
-                print("\n⚠️ 无法获取交互式输入，自动选择高重要性及以上的片段")
-                high_importance = ['极高', '高']
-                selected_clips = [clip for clip in clips if clip.get('importance', '中') in high_importance]
-                if not selected_clips:
-                    selected_clips = clips
-                print(f"✅ 已自动选择 {len(selected_clips)} 个高重要性片段")
+                # 自动化环境无法获取输入时，选择所有片段（不筛选 importance）
+                print("\n⚠️ 无法获取交互式输入，自动选择所有片段")
+                selected_clips = clips
+                print(f"✅ 已自动选择 {len(selected_clips)} 个片段")
 
         # 如果只是列出选择，不生成文案
         if args.list_only:

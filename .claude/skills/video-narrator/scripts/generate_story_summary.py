@@ -15,6 +15,7 @@ from datetime import datetime
 # 分段配置
 MAX_DURATION_PER_SEGMENT = 900  # 每段最大时长（秒），默认15分钟
 MAX_CHARS_PER_SEGMENT = 30000   # 每段最大字符数，默认30000
+MIN_CLIP_DURATION = 15          # 最小片段时长（秒），低于此值将被过滤
 
 
 def load_srt(srt_path):
@@ -405,38 +406,59 @@ def parse_llm_key_moments(llm_output):
     return key_moments
 
 
-def create_clips_from_key_moments(key_moments, padding=5):
+def create_clips_from_key_moments(key_moments, min_duration=MIN_CLIP_DURATION):
     """根据关键情节节点创建视频片段
 
     Args:
         key_moments: 关键情节节点列表
-        padding: 片段前后扩展秒数
+        min_duration: 最小片段时长（秒），低于此值将被过滤
 
     Returns:
         按时间顺序排序的片段列表
     """
     clips = []
+    filtered_count = 0
 
     for i, moment in enumerate(key_moments):
-        start_sec = max(0, moment['start_seconds'] - padding)
-        end_sec = moment['start_seconds'] + padding
+        # 直接使用关键情节的开始和结束时间，不添加 padding
+        moment_start_sec = moment.get('start_seconds', 0)
+        moment_end_sec = moment.get('end_seconds', moment_start_sec)
+
+        # 计算片段时长
+        start_sec = moment_start_sec
+        end_sec = moment_end_sec
+        duration = end_sec - start_sec
+
+        # 过滤掉时长低于阈值的片段
+        if duration < min_duration:
+            filtered_count += 1
+            print(f"  过滤片段（时长 {duration:.1f}s < {min_duration}s）: {moment.get('description', '')[:50]}...")
+            continue
 
         # 格式化时间
         start_time = f"{int(start_sec // 3600):02d}:{int((start_sec % 3600) // 60):02d}:{int(start_sec % 60):02d}"
         end_time = f"{int(end_sec // 3600):02d}:{int((end_sec % 3600) // 60):02d}:{int(end_sec % 60):02d}"
 
         clips.append({
-            'id': f'clip_{i+1:03d}',
+            'id': f'clip_{len(clips)+1:03d}',
             'start_time': start_time,
             'end_time': end_time,
-            'duration': round(end_sec - start_sec, 1),
+            'duration': round(duration, 1),
             'description': moment['description'],
             'importance': moment['importance'],
-            'output_file': f'clips/clip_{i+1:03d}.mp4'
+            'output_file': f'clips/clip_{len(clips)+1:03d}.mp4'
         })
+
+    if filtered_count > 0:
+        print(f"  已过滤 {filtered_count} 个时长低于 {min_duration} 秒的片段")
 
     # 按时间顺序排序
     clips.sort(key=lambda x: x['start_time'])
+
+    # 重新编号
+    for i, clip in enumerate(clips, 1):
+        clip['id'] = f'clip_{i:03d}'
+        clip['output_file'] = f'clips/clip_{i:03d}.mp4'
 
     return clips
 
