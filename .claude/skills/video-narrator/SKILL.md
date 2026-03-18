@@ -208,7 +208,7 @@ def check_analysis_exists(output_dir):
    - 向用户展示已存在的内容概要（关键情节数量、生成时间等）
    - 询问用户选择：
      - 重新生成：删除旧的 analysis.json，重新执行步骤 3 的剧情分析
-     - 继续使用：跳过剧情分析，直接进入**步骤 3.3：生成解说文案阶段**
+     - 继续使用：跳过剧情分析，直接进入**步骤 3.3：视频剪切阶段**
 
 **用户交互示例：**
 ```
@@ -230,11 +230,11 @@ def check_analysis_exists(output_dir):
 
 **【强制规则】**
 - 如果用户选择"重新生成"，必须先删除旧的 `analysis.json` 文件后再执行新的剧情分析
-- 如果用户选择"继续使用"，直接跳过步骤 3.1 和 3.2，进入步骤 3.3
+- 如果用户选择"继续使用"，直接跳过步骤 3.1 和 3.2，进入步骤 3.3（视频剪切）
 
 **后续处理：**
 - 选择重新生成：执行完整的剧情分析流程（步骤 3.1-3.2）
-- 选择继续使用：直接进入步骤 3.3，使用现有的 analysis.json 生成解说文案
+- 选择继续使用：直接进入步骤 3.3（视频剪切），然后执行步骤 3.4（生成解说文案）
 
 ### 步骤 3: 情况 A - 有对话/旁白视频处理流程
 
@@ -356,93 +356,40 @@ python3 .claude/skills/video-narrator/scripts/generate_story_summary.py \
 3. 每个片段前后扩展 2-5 秒作为缓冲
 4. **【关键】必须按时间顺序排序**，不是按能量排序
 
-**步骤 3.3: 【必须】使用 generate_narrator.py 脚本生成解说文案**
+**步骤 3.3: 【必须】选择片段并进行视频剪切**
 
-**【重要】在运行脚本之前，必须先询问用户想要使用哪种模式！**
+**根据生成的剧情片段进行视频剪切：**
 
-**询问用户示例：**
-```
-请选择解说文案生成模式：
-1. 交互式选择（推荐）- 列出所有关键片段让您选择
-2. 自动精选 - 自动选择 15 个片段
-
-请回复数字或"交互"/"自动"：
-```
-
-用户选择后，执行相应的命令。
-
-**模式一：交互式选择片段（推荐）**
-
-列出所有关键片段供用户选择：
+使用 cut_video.py 脚本进行剪切：
 
 ```bash
-# 交互式选择模式 - 列出所有关键片段让用户选择
-python3 .claude/skills/video-narrator/scripts/generate_narrator.py \
-    --clips output/analysis.json \
-    --srt output/subtitles/full.srt \
-    --output output/subtitles/narrator.srt \
-    --interactive
+# 运行视频剪切脚本
+python3 .claude/skills/video-narrator/scripts/cut_video.py <输入视频> <开始时间> <结束时间> <输出文件>
+
+# 示例：
+python3 .claude/skills/video-narrator/scripts/cut_video.py input.mp4 00:01:30 00:02:45 output/clips/clip_001.mp4
 ```
 
-**交互式选择流程：**
+**脚本参数说明：**
+- `input`: 输入视频路径
+- `start`: 开始时间 (格式: HH:MM:SS 或 MM:SS)
+- `end`: 结束时间 (格式: HH:MM:SS 或 MM:SS)
+- `output`: 输出视频路径
+- `--re-encode`: 可选参数，添加此参数会重新编码（默认使用 copy 快速复制）
 
-1. 脚本列出所有关键片段（包含时间、重要性、详细描述）
-2. 用户可以通过以下方式选择：
-   - 输入片段编号，用逗号分隔，如：`1,3,5,8`
-   - 输入范围，如：`1-10` 表示选择前10个
-   - 输入 `all` 表示选择全部
-3. 脚本根据用户选择生成解说文案提示词
+**重要：必须为每个精彩片段分别调用一次脚本！**
 
-#### 模式二：自动精选片段
+**步骤 3.4: 【必须】生成解说文案**
 
-自动从所有关键片段中精选指定数量：
+在视频剪切完成后，使用 generate_narrator.py 生成的提示词来生成解说文案：
 
-```bash
-# 运行解说文案生成脚本（默认生成约10分钟解说，15个片段）
-python3 .claude/skills/video-narrator/scripts/generate_narrator.py \
-    --clips output/analysis.json \
-    --srt output/subtitles/full.srt \
-    --output output/subtitles/narrator.srt
-
-# 自定义解说参数
-# --max-clips 15   最大片段数（默认15个，约10分钟）
-# --clip-duration 40  每个片段时长秒数（默认40秒）
-# 例如生成5分钟精简版：
-python3 .claude/skills/video-narrator/scripts/generate_narrator.py \
-    --clips output/analysis.json \
-    --srt output/subtitles/full.srt \
-    --output output/subtitles/narrator.srt \
-    --max-clips 8 \
-    --clip-duration 40
-
-# 例如生成15分钟完整版：
-python3 .claude/skills/video-narrator/scripts/generate_narrator.py \
-    --clips output/analysis.json \
-    --srt output/subtitles/full.srt \
-    --output output/subtitles/narrator.srt \
-    --max-clips 25 \
-    --clip-duration 40
-```
-
-**解说时长参考：**
-| 片段数 | 每段时长 | 总时长 |
-|--------|----------|--------|
-| 8 | 40秒 | ~5分钟 |
-| 15 | 40秒 | ~10分钟 |
-| 20 | 40秒 | ~13分钟 |
-| 25 | 40秒 | ~17分钟 |
-
-**【强制】脚本执行规则：**
+**脚本执行规则：**
 - 脚本会自动筛选关键片段（优先选择 importance="极高" 和 "高" 的片段）
 - 脚本会自动生成 `narrator_prompt.txt` 提示词文件
 - **【必须】将 narrator_prompt.txt 发送给 LLM 生成解说文案**
 - 脚本运行后检查是否生成了有效的 `narrator.srt` 文件
   - 如果已存在，使用该文件
   - 如果不存在，需要将 LLM 返回的解说文案手动创建为 narrator.srt 文件
-
-**步骤 3.4: 视频剪切**
-
-与原步骤 5 相同，使用 cut_video.py 脚本。
 
 ### 步骤 3 续: 情况 B - 纯音乐/无旁白视频处理流程
 
@@ -470,28 +417,7 @@ python3 .claude/skills/video-narrator/scripts/analyze_energy.py input.mp4 output
 
 **重要：默认保留所有识别出的高能片段，不进行数量限制！**
 
-### 步骤 4: 纯音乐视频解说文案（特殊处理）
-
-**仅适用于步骤 2.5 判定为纯音乐的视频！**
-
-如果判定为纯音乐，解说文案应该描述音乐情绪和结构，而不是基于字幕内容。
-
-**【强制】使用预设脚本生成纯音乐解说文案：**
-
-可以使用 `generate_narrator.py` 脚本生成音乐解说文案模板，然后根据实际情况调整：
-
-```bash
-python3 .claude/skills/video-narrator/scripts/generate_narrator.py \
-    --clips output/energy.json \
-    --srt output/subtitles/full.srt \
-    --output output/subtitles/narrator.srt
-```
-
-**【禁止】**
-- ❌ 禁止自己编写音乐分析代码
-- ❌ 禁止手动生成音乐结构分析文案
-
-### 步骤 5: 视频剪切
+### 步骤 4: 纯音乐视频剪切
 
 **必须使用脚本！** 运行 scripts/cut_video.py 脚本进行剪切：
 
@@ -511,6 +437,29 @@ python3 .claude/skills/video-narrator/scripts/cut_video.py input.mp4 00:01:30 00
 - `--re-encode`: 可选参数，添加此参数会重新编码（默认使用 copy 快速复制）
 
 **重要：必须为每个精彩片段分别调用一次脚本！**
+
+### 步骤 5: 纯音乐视频解说文案（特殊处理）
+
+**仅适用于步骤 2.5 判定为纯音乐的视频！**
+
+在视频剪切完成后，生成纯音乐解说文案。
+
+如果判定为纯音乐，解说文案应该描述音乐情绪和结构，而不是基于字幕内容。
+
+**【强制】使用预设脚本生成纯音乐解说文案：**
+
+可以使用 `generate_narrator.py` 脚本生成音乐解说文案模板，然后根据实际情况调整：
+
+```bash
+python3 .claude/skills/video-narrator/scripts/generate_narrator.py \
+    --clips output/energy.json \
+    --srt output/subtitles/full.srt \
+    --output output/subtitles/narrator.srt
+```
+
+**【禁止】**
+- ❌ 禁止自己编写音乐分析代码
+- ❌ 禁止手动生成音乐结构分析文案
 
 ### 步骤 6: 生成导出文件
 
@@ -708,9 +657,9 @@ FCM: NON-DROP FRAME
 1. 正在验证视频文件...
 2. 正在进行语音识别...
 3. 检测到视频包含语音内容
-4. 正在生成解说文案...
-5. 正在识别精彩片段...
-6. 正在剪切视频...
+4. 正在生成剧情分析...
+5. 正在剪切视频片段...
+6. 正在生成解说文案...
 7. 正在生成导出文件...
 
 完成! 导出文件已保存到: /Users/guohanlin/videos/demo_output/
@@ -725,8 +674,8 @@ FCM: NON-DROP FRAME
 2. 正在进行语音识别...
 3. ⚠️ 检测到为纯音乐视频（语音识别结果少于50字）
 4. 正在使用音频能量分析识别精彩片段...
-5. 正在生成音乐解说文案...
-6. 正在剪切视频...
+5. 正在剪切视频片段...
+6. 正在生成音乐解说文案...
 7. 正在生成导出文件...
 
 完成! 导出文件已保存到: /Users/guohanlin/videos/music_output/
@@ -748,7 +697,7 @@ FCM: NON-DROP FRAME
 2. 正在语音识别...
 3. 正在分析音频能量...
 4. 识别到 25 个高能片段，按要求保留前 10 个
-5. 正在剪切视频...
+5. 正在剪切视频片段...
 6. 正在生成导出文件...
 
 完成! 保留10个精彩片段
@@ -763,7 +712,7 @@ FCM: NON-DROP FRAME
 2. 正在语音识别...
 3. 正在分析音频能量...
 4. 识别到 25 个高能片段，全部保留
-5. 正在剪切视频...
+5. 正在剪切视频片段...
 6. 正在生成导出文件...
 
 完成! 保留全部25个精彩片段
