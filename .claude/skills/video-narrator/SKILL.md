@@ -248,42 +248,17 @@ def check_analysis_exists(output_dir):
 
 当检测到视频包含对话/旁白时（识别片段数 >= 10 或文字数 >= 50），执行以下流程：
 
-**步骤 3.1: 【必须】使用 generate_story_summary.py 脚本生成剧情摘要和关键情节分析**
+**步骤 3.1: 【必须】直接使用自身能力分析字幕，生成 analysis.json**
 
-【强制】必须使用 `generate_story_summary.py` 脚本生成提示词，该脚本会生成 `analysis_prompt.txt` 文件，然后自动完成分析：
+【核心改动】不再需要将提示词发送给外部 LLM！直接使用我的能力分析字幕内容并生成 analysis.json。
 
-```bash
-# 运行剧情摘要和关键情节分析脚本（短视频 < 15分钟）
-python3 .claude/skills/video-narrator/scripts/generate_story_summary.py \
-    --srt output/subtitles/full.srt \
-    --output output/analysis.json
+**【必须执行】处理流程：**
 
-# 强制分段模式（无论视频长短都分多段处理）
-python3 .claude/skills/video-narrator/scripts/generate_story_summary.py \
-    --srt output/subtitles/full.srt \
-    --output output/analysis.json \
-    --mode long
+1. **读取字幕文件**：读取 `output/ subtitles/full.srt` 内容
+2. **直接分析**：根据字幕内容，直接生成符合格式的 analysis.json
+3. **保存结果**：将分析结果写入 `output/analysis.json`
 
-# 短视频模式（不分段）
-python3 .claude/skills/video-narrator/scripts/generate_story_summary.py \
-    --srt output/subtitles/full.srt \
-    --output output/analysis.json \
-    --mode short
-```
-
-**【重要】脚本执行流程：**
-1. 脚本自动读取字幕文件
-2. 脚本自动生成分段分析提示词并保存到文件
-3. **【必须】将提示词发送给 LLM 进行分析**
-4. 脚本运行完成后，检查是否生成了 `analysis.json` 文件
-   - 如果已存在有效的 `analysis.json`，说明已有分析结果，直接使用
-   - 如果不存在，需要将 LLM 分析结果填入或手动创建 analysis.json
-
-**【长视频分段处理 - 必须执行】**
-
-当视频时长超过 15 分钟时，脚本会自动将字幕分为多个段落生成分段提示词。
-
-脚本支持自动分段处理长视频，解决上下文长度限制问题：
+**【重要】长视频分段处理：**
 
 - **自动检测**：当视频时长超过 15 分钟时，自动将字幕分为多个段落
 - **分段模式** (`--mode` 参数)：
@@ -291,39 +266,34 @@ python3 .claude/skills/video-narrator/scripts/generate_story_summary.py \
   - `short`：强制不分段，适用于短视频
   - `long`：强制分段，无论视频多长都分为多段处理
 
-**【必须执行】分段分析工作流程：**
+**【长视频分析工作流程】**
 
-1. 脚本运行后会生成分段提示词文件，按以下顺序操作：
-   - 对于 4 个分段的视频：
-     - 将 `output/analysis_prompt_p1.txt` 发送给 LLM 分析
-     - 将 `output/analysis_prompt_p2.txt` 发送给 LLM 分析
-     - 将 `output/analysis_prompt_p3.txt` 发送给 LLM 分析
-     - 将 `output/analysis_prompt_p4.txt` 发送给 LLM 分析
-     - LLM分析如果有多段，需采用**并行执行的方式**以节省时间
-   - 将所有分段的分析结果汇总，填入 `output/analysis_prompt_summary.txt`
+对于超过 15 分钟的长视频，需要分段处理以避免上下文限制：
 
-2. **创建 analysis.json**：将 LLM 返回的分析结果汇总按照指定格式填入 `analysis.json`
+1. 脚本运行后会生成分段提示词文件（如果不使用脚本，也可手动分段）
+2. **【直接分析】** 对每个分段的字幕内容直接进行本地分析
+3. 汇总所有分段的分析结果，创建完整的 analysis.json
 
-**脚本输出：**
+**【必须使用 analysis_example.json 作为格式参照】**
 
-短视频（< 15分钟）：
-- `output/analysis_prompt.txt` - 发送给 LLM 的提示词
-- `output/analysis.json` - 分析结果（需要 LLM 分析后手动创建）
+生成 analysis.json 时，必须严格参照 `references/analysis_example.json` 的格式：
 
-长视频（> 15分钟）：
-- `output/analysis_prompt_p1.txt` - 第一分段提示词
-- `output/analysis_prompt_p2.txt` - 第二分段提示词
-- `output/analysis_prompt_p3.txt` - 第三分段提示词（如果需要）
-- `output/analysis_prompt_p4.txt` - 第四分段提示词（如果需要）
-- `output/analysis_prompt_summary.txt` - 汇总提示词
-- `output/analysis.json` - 最终分析结果（需要 LLM 分析后手动创建）
+- ✅ 必须有 video_type 字段（dialogue/instrumental）
+- ✅ 必须有 summary 字段（整体剧情摘要，200-400字）
+- ✅ 必须有各分 part_summary 字段（长视频需要，每个分段400-500字）
+- ✅ key_moments 必须有 importance="高" 的节点
+- ✅ key_moments 必须有 detailed_description 字段（50字以上，包含场景细节）
+- ✅ key_moments 必须有 scene 字段
+- ✅ key_moments 必须有 start 和 end 时间
+- ✅ characters 数组必须包含主要角色
+- ✅ 必须有 themes 数组
 
 **【关键约束】禁止行为：**
+- ❌ 禁止将提示词发送给外部 LLM API
 - ❌ 禁止自己编写 Python/JS 代码生成分析结果
-- ❌ 禁止修改或扩展预设脚本的功能
-- ✅ 只能使用预设脚本的参数和功能
-- ✅ 必须参考analysis_example.json来生成analysis.json
-- ✅ 如果需要分析结果，必须将分段提示词发送给 LLM 分析后创建 analysis.json
+- ❌ 禁止手动发送提示词给任何外部 LLM 服务
+- ✅ 直接使用自身能力分析字幕内容
+- ✅ 必须参考 analysis_example.json 来生成 analysis.json
 
 **步骤 3.2: 【必须】使用 analysis.json 中的关键情节创建片段**
 
@@ -379,17 +349,27 @@ python3 .claude/skills/video-narrator/scripts/cut_video.py input.mp4 00:01:30 00
 
 **重要：必须为每个精彩片段分别调用一次脚本！【必须】要求批量操作，不要一个个执行**
 
-**步骤 3.4: 【必须】生成解说文案**
+**步骤 3.4: 【必须】直接生成解说文案**
 
-在视频剪切完成后，使用 generate_narrator.py 生成的提示词来生成解说文案：
+【核心改动】不再需要将提示词发送给外部 LLM！直接使用我的能力生成解说文案。
 
-**脚本执行规则：**
-- 脚本会使用所有 key_moments 片段（默认保留全部，不筛选 importance）
-- 脚本会自动生成 `narrator_prompt.txt` 提示词文件
-- **【必须】将 narrator_prompt.txt 发送给 LLM 生成解说文案**
-- 脚本运行后检查是否生成了有效的 `narrator.srt` 文件
-  - 如果已存在，使用该文件
-  - 如果不存在，需要将 LLM 返回的解说文案手动创建为 narrator.srt 文件
+**【必须执行】处理流程：**
+1. 读取已生成的 `analysis.json` 中的关键情节信息
+2. 读取字幕文件 `full.srt` 内容
+3. **直接使用自身能力**为每个关键情节生成解说文案
+4. 按照 narrator_example.srt 的格式生成 `narrator.srt` 文件
+
+**解说文案格式要求（参照 narrator_example.srt）：**
+- SRT 格式：序号 + 时间戳 + 解说文案
+- 时间戳格式：`HH:MM:SS,mmm --> HH:MM:SS,mmm`
+- 每段 1-3 句话为宜
+- 内容简洁、生动、与视频内容对应
+- 使用中文解说
+
+**【关键约束】禁止行为：**
+- ❌ 禁止将提示词发送给外部 LLM API
+- ✅ 直接使用自身能力生成解说文案
+- ✅ 必须参照 narrator_example.srt 格式
 
 ### 步骤 3 续: 情况 B - 纯音乐/无旁白视频处理流程
 
@@ -759,11 +739,10 @@ AI 文案生成直接使用当前 Claude 会话的能力，无需外部 API。
 技能提供以下辅助脚本：
 
 1. **transcribe.py** - 语音识别脚本
-2. **generate_story_summary.py** - 剧情摘要和关键情节分析脚本（有对话视频）
-3. **cut_video.py** - 视频剪切脚本
-4. **generate_xml.py** - Premiere XML 生成脚本
-5**analyze_energy.py** - 音频能量分析脚本（纯音乐视频）
-6**generate_narrator.py** - 解说文案生成脚本（有对话视频）
+2. **cut_video.py** - 视频剪切脚本
+3. **generate_xml.py** - Premiere XML 生成脚本
+4. **analyze_energy.py** - 音频能量分析脚本（纯音乐视频）
+5. **generate_narrator.py** - 解说文案生成脚本（有对话视频）
 
 **脚本完整路径：**
 ```bash
@@ -772,11 +751,6 @@ SCRIPT_DIR=".claude/skills/video-narrator/scripts"
 
 # 语音识别
 python3 ${SCRIPT_DIR}/transcribe.py input.mp4 output.srt
-
-# 剧情摘要和关键情节分析（用于有对话视频）
-python3 ${SCRIPT_DIR}/generate_story_summary.py \
-    --srt output/subtitles/full.srt \
-    --output output/analysis.json
 
 # 音频能量分析（默认保留全部片段）
 python3 ${SCRIPT_DIR}/analyze_energy.py input.mp4 energy.json
@@ -876,7 +850,7 @@ python3 ${SCRIPT_DIR}/generate_xml.py output/clips output/timeline/project.xml -
 }
 ```
 
-**【关键要求】key_moments 详细字段说明：**
+**【重要】key_moments 详细字段说明：**
 
 | 字段 | 必须 | 说明 |
 |------|------|------|
@@ -884,7 +858,7 @@ python3 ${SCRIPT_DIR}/generate_xml.py output/clips output/timeline/project.xml -
 | end | ✅ | **结束时间**，格式 HH:MM:SS，表示该情节片段的结束时间 |
 | description | ✅ | 简短描述，20-50字 |
 | importance | ✅ | 高/中/低，必须有高重要性节点 |
-| detailed_description | ✅ | **详细描述**，50-200字，包含完整场景信息。**【强制】剧情内容必须发生在 start 和 end 时间范围内！** |
+| detailed_description | ✅ | **结构化详细描述**，80-200字，必须包含以下结构化字段：<br>• **人物**：该时间段内出现的所有人物列表<br>• **动作**：每个角色的具体动作描写（转身、皱眉、握拳等）<br>• **对话**：关键对白内容（可用原文或概括）<br>• **场景**：环境、地点、背景细节<br>• **氛围**：情绪基调、气氛描写<br>**【强制】所有内容必须发生在 start 和 end 时间范围内！** |
 | scene | ✅ | 场景位置，如"RV内"、"医院"、"街头"等 |
 
 **实际示例（来自 test1.mp4）：**
@@ -970,35 +944,24 @@ Jesse描述他们的悲惨处境：他们偏离了主路，车陷进了沟渠。
 2. 检测字幕 - 发现已存在 output/test1/subtitles/full.srt
    → 跳过语音识别
 
-3. 运行剧情分析脚本
-   python3 .claude/skills/video-narrator/scripts/generate_story_summary.py \
-       --srt output/test1/subtitles/full.srt \
-       --output output/test1/analysis.json
+3. 【直接分析】读取字幕内容，使用自身能力直接分析：
 
-4. 脚本生成了4个分段提示词：
-   - analysis_prompt_p1.txt (00:00:00-00:11:58)
-   - analysis_prompt_p2.txt (00:11:58-00:23:56)
-   - analysis_prompt_p3.txt (00:23:56-00:35:54)
-   - analysis_prompt_p4.txt (00:35:54-00:47:52)
-   - analysis_prompt_summary.txt (汇总)
+   - 分析第1分段 (00:00:00-00:11:58) 剧情
+   - 分析第2分段 (00:11:58-00:23:56) 剧情
+   - 分析第3分段 (00:23:56-00:35:54) 剧情
+   - 分析第4分段 (00:35:54-00:47:52) 剧情
 
-5. 将4个分段发送给 LLM 分析，生成详细剧情摘要
-
-6. 手动创建 analysis.json，包含：
+4. 直接创建 analysis.json，包含：
    - 4个分段的详细剧情摘要（各400-500字）
    - 25个关键情节节点（每个都有详细描述）
    - 6个主要角色介绍和关系图
    - 5个主题分析
 
-7. 运行解说文案生成脚本
-   python3 .claude/skills/video-narrator/scripts/generate_narrator.py \
-       --clips output/test1/analysis.json \
-       --srt output/test1/subtitles/full.srt \
-       --output output/test1/subtitles/narrator.srt
+5. 【直接生成】根据 analysis.json，直接生成 narrator.srt 解说文案
 
-8. 根据 analysis.json 中的25个关键情节节点创建25段解说文案
+6. 根据 analysis.json 中的25个关键情节节点创建25段解说文案
 
-9. 视频剪切（待执行）
+7. 视频剪切（待执行）
 ```
 
 ### 4. 关键约束汇总

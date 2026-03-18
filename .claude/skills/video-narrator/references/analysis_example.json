@@ -19,119 +19,100 @@
       "end": "00:02:22",
       "description": "开场：Jesse描述12小时前翻车经过，咖啡洒了一裤子",
       "importance": "低",
-      "detailed_description": "Jesse向某人描述他们偏离主路、车陷进沟渠的经过。一边开车一边看地图导致翻车，咖啡洒了一裤子。这是剧集的开场铺垫，展现 Jesse 的慌张性格。",
+      "detailed_description": {
+        "人物": ["Jesse Pinkman", "另一人（名字未提及）"],
+        "动作": {
+          "Jesse": "手舞足蹈地比划翻车过程，脸上满是无奈，低头看向自己洒了咖啡的裤子，叹气摇头",
+          "另一人": "靠在沟渠边，表情痛苦，似乎还没从惊吓中恢复"
+        },
+        "对话": {
+          "Jesse": "（回忆）'我们偏离了主路，我一边开车一边看地图，结果车直接陷进沟渠'",
+          "另一人": "（呻吟）'咖啡全洒我身上了...'"
+        },
+        "场景": "郊外一条泥土路旁，沟渠中有辆翻倒的SUV，地上散落着咖啡渍和碎片",
+        "氛围": "开场混乱而紧张，带有黑色幽默色彩"
+      },
       "scene": "郊外沟渠"
-    },
-    {
-      "start": "00:05:20",
-      "end": "00:05:45",
-      "description": "剧集标题出现：绝命毒师 第一季 第2集",
-      "importance": "低",
-      "detailed_description": "画面显示剧集标题和集数，正式进入本集剧情。",
-      "scene": "转场"
     },
     {
       "start": "00:05:40",
       "end": "00:06:00",
       "description": "Walter妻子Skyler即将分娩，Walter送她去医院",
       "importance": "中",
-      "detailed_description": "Skyler即将分娩，Walter送她到医院。Walter接到Jesse的紧急求救电话但果断挂断，显示他对家庭和犯罪的明确界限。",
+      "detailed_description": {
+        "人物": ["Walter White", "Skyler White", "医生（背景）"],
+        "动作": {
+          "Walter": "一手扶着Skyler的腰，一手接起手机看了一眼，眉头紧锁，果断按掉电话，将手机塞回口袋",
+          "Skyler": "挽着Walter的手臂，步伐缓慢而吃力，不时抚摸隆起的腹部，表情略显疲惫"
+        },
+        "对话": {
+          "Skyler": "（轻声）'亲爱的，能陪我去吗？'",
+          "Walter": "（心不在焉）'当然，当然...'"
+        },
+        "场景": "医院走廊，惨白的灯光，消毒水气味，远处有护士推车经过",
+        "氛围": "紧张与期待并存，Walter明显心事重重"
+      },
       "scene": "医院"
-    },
-    {
-      "start": "00:07:37",
-      "end": "00:08:00",
-      "description": "Jesse假扮AT&T推销员给Walter打电话求救",
-      "importance": "中",
-      "detailed_description": "Jesse用变声软件假扮AT&T公司推销员打电话给Walter，暗示情况紧急。这是剧中经典桥段，展现 Jesse 的急中生智。",
-      "scene": "房车内"
     },
     {
       "start": "00:08:06",
       "end": "00:08:30",
       "description": "Jesse告知Walter毒贩'疯狂老八'醒来，试图挣脱",
       "importance": "高",
-      "detailed_description": "Jesse贴住房车听到里面'疯狂老八'醒来并试图挣脱。他催促Walter赶紧回来处理，Walter借口要上完课才能离开，两人发生争执。",
-      "scene": "房车外"
+      "detailed_description": {
+        "人物": ["Jesse Pinkman", "Walter White（电话中）", "疯狂老八（房车内）"],
+        "动作": {
+          "Jesse": "贴住房车车门侧耳倾听，脸色骤变，双手颤抖，语速急促地对着手机说话",
+          "Walter": "在教室走廊接电话，手握教科书遮住手机，压低声音回应，表情严肃"
+        },
+        "对话": {
+          "Jesse": "（气喘吁吁）'他醒了！他在里面撞门！快回来！'",
+          "Walter": "（皱眉）'我还有半节课要上，你先想办法拖住他'"
+        },
+        "场景": "Jesse在荒郊房车外打电话，Walter在学校走廊，两人通话",
+        "氛围": "极度紧张，危机一触即发"
+      },
+      "scene": "房车外/学校走廊"
     },
     {
       "start": "00:09:34",
       "end": "00:10:00",
       "description": "Walter讲授'手征性'化学概念",
       "importance": "高",
-      "detailed_description": "Walter在高中化学课堂讲授'手征性'（chirality）概念——分子如同左右手，镜像但不能重叠。用沙利度胺为例：右旋异构体是良药，左旋异构体导致婴儿畸形。为后续用化学知识犯罪埋下深刻伏笔。",
+      "detailed_description": {
+        "人物": ["Walter White（主讲）", "班级学生（约20人）", "窗外：Jesse Pinkman（等待）"],
+        "动作": {
+          "Walter": "站在讲台前，手持粉笔，在黑板上画出左右手对称图示，用手指比划分子结构，转身面向学生",
+          "学生": "低头做笔记，有人抬头看黑板，有人望向窗外",
+          "Jesse": "在窗外停车场徘徊，双手插兜，时不时看向房车方向，神色焦虑"
+        },
+        "对话": {
+          "Walter": "（讲解）'就像你们的左右手，镜像但不能重叠——这就是手征性'",
+          "Walter": "（举例）'沙利度胺，右旋异构体是良药，左旋异构体导致婴儿畸形'"
+        },
+        "场景": "高中化学教室，窗外是停车场，阳光明媚",
+        "氛围": "课堂安静专注，与窗外Jesse的焦虑形成对比，暗示化学知识的两面性"
+      },
       "scene": "高中教室"
-    },
-    {
-      "start": "00:10:18",
-      "end": "00:10:48",
-      "description": "Walter讲述沙利度胺悲剧案例",
-      "importance": "高",
-      "detailed_description": "Walter继续讲解上世纪50年代沙利度胺事件——左手异构体导致婴儿严重出生缺陷。强调化学的'好的'和'坏的'两面性，这与他即将用化学知识犯罪形成讽刺对比。",
-      "scene": "高中教室"
-    },
-    {
-      "start": "00:12:48",
-      "end": "00:13:10",
-      "description": "房车突发状况，Jesse惊恐",
-      "importance": "中",
-      "detailed_description": "房车传来不明声音，Jesse惊恐万分，担心'疯狂老八'已经挣脱。展现 Jesse 极度紧张的状态。",
-      "scene": "房车内"
-    },
-    {
-      "start": "00:15:27",
-      "end": "00:15:40",
-      "description": "Jesse询问'疯狂老八'是否死了",
-      "importance": "中",
-      "detailed_description": "Jesse问 Walter 房车里的另一个家伙（Emilio）是否已死。Walter让他自己去看。",
-      "scene": "房车外"
-    },
-    {
-      "start": "00:15:50",
-      "end": "00:16:10",
-      "description": "Jesse得知毒贩代号'疯狂老八'",
-      "importance": "中",
-      "detailed_description": "Jesse从'疯狂老八'口中得知他的代号。这是剧中重要毒贩角色的首次亮相。",
-      "scene": "房车内"
-    },
-    {
-      "start": "00:16:19",
-      "end": "00:16:30",
-      "description": "解释'疯狂老八'是分销商",
-      "importance": "中",
-      "detailed_description": "'疯狂老八'解释他的地位——如同卖咖啡豆给星巴克的人，是分销商而非最低层毒贩。",
-      "scene": "房车内"
-    },
-    {
-      "start": "00:19:19",
-      "end": "00:19:50",
-      "description": "Walter和Jesse互相指责推卸责任",
-      "importance": "高",
-      "detailed_description": "两人互相指责对方导致现在处境。Jesse怪 Walter 是'书呆子老头'主动制毒，Walter则怪 Jesse 带他去制毒。展现两人脆弱的合作关系。",
-      "scene": "房车外"
-    },
-    {
-      "start": "00:20:06",
-      "end": "00:20:25",
-      "description": "讨论用磷化氢毒死'疯狂老八'",
-      "importance": "中",
-      "detailed_description": "Jesse问 Walter 磷化氢（他误说是磷酸盐气）能否毒死'疯狂老八'。Walter解释这不是当务之急。",
-      "scene": "房车外"
     },
     {
       "start": "00:20:47",
       "end": "00:21:00",
       "description": "Walter提出化学分解——用浓酸毁尸灭迹",
       "importance": "极高",
-      "detailed_description": "Walter提出最佳解决方案：用浓酸进行化学分解，毁掉尸体。这是 Walter 走向犯罪的关键决定，展现他的化学专业知识将被用于谋杀。",
-      "scene": "房车外"
-    },
-    {
-      "start": "00:21:08",
-      "end": "00:21:30",
-      "description": "Jesse震惊反对化学分解计划",
-      "importance": "高",
-      "detailed_description": "Jesse听到用浓酸毁尸的计划后惊恐万状，连问'你不是认真的吧'、'你是来真的?'。",
+      "detailed_description": {
+        "人物": ["Walter White", "Jesse Pinkman"],
+        "动作": {
+          "Walter": "双手比划着，双手握拳，眼神冷静而坚定，压低声音说出计划",
+          "Jesse": "后退一步，瞪大眼睛，嘴巴张开，表情从震惊转为恐惧"
+        },
+        "对话": {
+          "Walter": "（低声）'浓酸。氢氟酸。把他们溶解掉，什么都不会留下。'",
+          "Jesse": "（颤抖）'你...你是认真的吧？'"
+        },
+        "场景": "房车外的荒野，傍晚时分，天色渐暗，周围荒无人烟",
+        "氛围": "阴森恐怖，Walter的冷静与Jesse的恐惧形成鲜明对比"
+      },
       "scene": "房车外"
     },
     {
@@ -139,135 +120,101 @@
       "end": "00:22:30",
       "description": "扔硬币决定谁处理尸体",
       "importance": "高",
-      "detailed_description": "Walter提议扔硬币决定：一人处理尸体，一人处理'疯狂老八'。Jesse选正面。最终硬币结果未当场展示，为后续剧情留悬念。",
+      "detailed_description": {
+        "人物": ["Walter White", "Jesse Pinkman"],
+        "动作": {
+          "Walter": "从口袋里掏出一枚25美分硬币，用拇指弹向空中，硬币旋转落地",
+          "Jesse": "紧盯硬币落地，双手合十，嘴里念念有词，然后伸手去翻",
+          "Walter": "（淡定）'正面还是反面？你选的。'"
+        },
+        "对话": {
+          "Walter": "（平静）'一人处理尸体，一人处理'疯狂老八'。让命运决定。'",
+          "Jesse": "（紧张）'正面！...好吧。'"
+        },
+        "场景": "房车外泥土地面，傍晚，远处房车隐约可见",
+        "氛围": "紧张等待，黑色幽默风格的赌博"
+      },
       "scene": "房车外"
-    },
-    {
-      "start": "00:23:21",
-      "end": "00:24:15",
-      "description": "Jesse电话询问买哪种塑料容器",
-      "importance": "高",
-      "detailed_description": "Jesse打电话给'疯狂老八'询问买什么塑料容器。Walter指导他找底部有三角形标记、标注'LDPE'（低密度聚乙烯）的塑料桶。Walter解释氢氟酸不会腐蚀塑料。",
-      "scene": "电话中/房车外"
-    },
-    {
-      "start": "00:24:51",
-      "end": "00:25:05",
-      "description": "Jesse认为'疯狂老八'再也不会醒来",
-      "importance": "中",
-      "detailed_description": "Jesse对着昏迷的'疯狂老八'自言自语，认为他再也不会醒来，建议干脆送他去医院。",
-      "scene": "房车内"
     },
     {
       "start": "00:27:31",
       "end": "00:27:52",
       "description": "'疯狂老八'醒来请求喝水",
       "importance": "高",
-      "detailed_description": "'疯狂老八'醒来，虚弱地请求 Jesse 给水喝。这是他苏醒后的第一个请求，场景紧张。",
+      "detailed_description": {
+        "人物": ["疯狂老八（Tuco Salamanca）", "Jesse Pinkman"],
+        "动作": {
+          "疯狂老八": "缓缓睁开眼，头部晃动，用沙哑声音说话，试图撑起身体但无力地倒下",
+          "Jesse": "猛地后退撞到车门，脸色发白，盯着疯狂老八，犹豫地递出一瓶水"
+        },
+        "对话": {
+          "疯狂老八": "（虚弱嘶哑）'水...给我水...求你了...'",
+          "Jesse": "（颤抖）'你...你感觉怎么样？'"
+        },
+        "场景": "房车内，空间狭小，充满汽油和血腥气味，窗外天色已暗",
+        "氛围": "极度紧张，暴力威胁若隐若现"
+      },
       "scene": "房车内"
-    },
-    {
-      "start": "00:29:31",
-      "end": "00:29:40",
-      "description": "'疯狂老八'追问表兄Emilio下落",
-      "importance": "高",
-      "detailed_description": "'疯狂老八'恢复意识后最关心的是表兄Emilio的下落。Jesse被迫承认 Emilio 已死。",
-      "scene": "房车内"
-    },
-    {
-      "start": "00:31:43",
-      "end": "00:32:10",
-      "description": "镇上买不到能装人的塑料箱",
-      "importance": "中",
-      "detailed_description": "Jesse告诉 Walter 镇上买不到能装下一个人的塑料箱。Walter建议买两个——一个装腿，一个装躯干。",
-      "scene": "电话中"
-    },
-    {
-      "start": "00:32:50",
-      "end": "00:33:10",
-      "description": "Jesse还没对'疯狂老八'下手",
-      "importance": "中",
-      "detailed_description": "Jesse承认还没对'疯狂老八'下手，因为第二天和医生有约必须去医院。",
-      "scene": "电话中"
     },
     {
       "start": "00:33:27",
       "end": "00:34:00",
       "description": "宝宝出生，确认是女孩",
       "importance": "中",
-      "detailed_description": "Skyler分娩，宝宝出生。医生告知是女孩，Walter表示这正是他期望的。",
-      "scene": "医院"
-    },
-    {
-      "start": "00:34:50",
-      "end": "00:35:25",
-      "description": "Skyler追问Walter和Jesse的关系",
-      "importance": "高",
-      "detailed_description": "Skyler询问 Jesse Pinkman 是谁，为什么打电话给 Walter。发现 Jesse 是 Walter 的学生，质疑两人之间的秘密。",
-      "scene": "医院"
-    },
-    {
-      "start": "00:35:33",
-      "end": "00:35:50",
-      "description": "Skyler发现Walter凌晨2点回家并在洗手间待整晚",
-      "importance": "高",
-      "detailed_description": "Skyler追问 Walter 为何凌晨2点才回家、在洗手间待了一整晚。Walter的异常行为开始引起妻子怀疑。",
-      "scene": "医院"
-    },
-    {
-      "start": "00:36:01",
-      "end": "00:36:25",
-      "description": "Walter谎称Jesse只是卖大麻给他",
-      "importance": "高",
-      "detailed_description": "Walter向 Skyler谎称 Jesse 只是卖大麻给他的人。Skyler质疑为何和毒贩有牵连。",
-      "scene": "医院"
+      "detailed_description": {
+        "人物": ["Walter White", "Skyler White", "医生", "护士"],
+        "动作": {
+          "医生": "双手托着新生儿，剪断脐带，将婴儿递给Skyler",
+          "Skyler": "眼含泪水，抱起婴儿亲吻额头，微笑着看向Walter",
+          "Walter": "俯身亲吻Skyler的脸颊，但眼神飘忽，心不在焉，额头渗出汗珠"
+        },
+        "对话": {
+          "医生": "（恭喜）'是个女孩，母女平安。'",
+          "Walter": "（微笑但僵硬）'Perfect...这是我期望的。'"
+        },
+        "场景": "医院产房，灯光柔和，背景有心跳监护仪的滴答声",
+        "氛围": "喜悦却带有一丝不安，Walter明显分心"
+      },
+      "scene": "医院产房"
     },
     {
       "start": "00:36:37",
       "end": "00:37:20",
       "description": "Walter承认不正常但请求Skyler不要管他",
       "importance": "高",
-      "detailed_description": "Walter承认自己最近确实不正常，但依然爱 Skyler，请求她不要再管他的事情。",
+      "detailed_description": {
+        "人物": ["Walter White", "Skyler White"],
+        "动作": {
+          "Walter": "深吸一口气，移开视线，声音低沉而疲惫，双手交叉放在胸前",
+          "Skyler": "双手叉腰，眉头紧锁，目光直视Walter，等待一个解释"
+        },
+        "对话": {
+          "Walter": "（低声）'我知道最近很奇怪...但我还是爱你的。求你了，Skyler，别再问我的事了。'",
+          "Skyler": "（追问）'你在隐瞒什么？Walter，我们需要沟通。'"
+        },
+        "场景": "医院病房走廊，灯光昏暗，有护士推车经过",
+        "氛围": "紧张对话，婚姻关系中的裂痕显现"
+      },
       "scene": "医院"
-    },
-    {
-      "start": "00:40:04",
-      "end": "00:40:50",
-      "description": "Skyler当面警告Jesse不要再卖大麻给丈夫",
-      "importance": "高",
-      "detailed_description": "Skyler找到 Jesse，当面表明身份（Walter妻子），并以妹夫是缉毒署探员进行威胁，警告他不要再卖大麻给 Walter。Jesse被吓到。",
-      "scene": "医院停车场"
-    },
-    {
-      "start": "00:42:16",
-      "end": "00:42:35",
-      "description": "Jesse模仿 Walter 语气抱怨被威胁",
-      "importance": "中",
-      "detailed_description": "Jesse用 Walter 的语气模仿抱怨被'神经病老婆'威胁，展现黑色幽默。",
-      "scene": "电话中"
-    },
-    {
-      "start": "00:43:33",
-      "end": "00:44:00",
-      "description": "Jesse得知 Walter 妹夫是缉毒署探员",
-      "importance": "高",
-      "detailed_description": "Jesse从 Walter 口中得知他的妹夫是缉毒署探员，大惊。",
-      "scene": "Walter家中"
     },
     {
       "start": "00:44:09",
       "end": "00:44:20",
       "description": "Walter承认制冰毒和杀人",
       "importance": "极高",
-      "detailed_description": "关键剧情！Walter向 Jesse 承认他制冰毒（cooked crystal meth）而且杀了人。相比承认制毒和杀人，谎称买大麻显得更合理。",
-      "scene": "Walter家中"
-    },
-    {
-      "start": "00:44:45",
-      "end": "00:45:00",
-      "description": "Walter讲述把尸体拖上楼梯的艰辛",
-      "importance": "高",
-      "detailed_description": "Walter向 Jesse 抱怨处理尸体的艰辛——把200磅发臭的尸体拖上楼梯，弄进浴缸。",
+      "detailed_description": {
+        "人物": ["Walter White", "Jesse Pinkman"],
+        "动作": {
+          "Walter": "靠在椅子上，双手交叉，表情冷漠，声音低沉但平静地坦白",
+          "Jesse": "瞪大双眼，后退靠在墙上，双腿发软，缓缓滑坐到地上"
+        },
+        "对话": {
+          "Walter": "（平静）'我制冰毒。我杀了人。就是这么简单。'",
+          "Jesse": "（震惊）'...什么？...什么？！'"
+        },
+        "场景": "Walter家中客厅，灯光暗淡，窗外夜色已深",
+        "氛围": "令人窒息的坦白时刻，剧情重大转折"
+      },
       "scene": "Walter家中"
     },
     {
@@ -275,7 +222,19 @@
       "end": "00:45:10",
       "description": "发现买错了容器——应该用浴缸",
       "importance": "极高",
-      "detailed_description": "关键失误！Walter发现他让 Jesse 买塑料桶是错误的——氢氟酸不会熔化塑料，但会熔化金属、岩石、玻璃、陶瓷包括浴缸！溶解尸体的计划彻底失败。",
+      "detailed_description": {
+        "人物": ["Walter White", "Jesse Pinkman"],
+        "动作": {
+          "Walter": "突然停下脚步，猛地转身，瞪大眼睛，用力拍自己的额头",
+          "Jesse": "困惑地看着Walter，双手一摊，等待解释"
+        },
+        "对话": {
+          "Walter": "（懊恼）'我犯了个错误...氢氟酸不会熔化塑料。但它会熔化金属、岩石、玻璃、陶瓷——包括浴缸！'",
+          "Jesse": "（崩溃）'等等...你是说我买的那两个塑料桶...没用？！'"
+        },
+        "场景": "Walter家中客厅，地上摊着两个蓝色塑料桶，氛围从紧张变为荒诞",
+        "氛围": "黑色幽默高潮，Walter的计划彻底失败的喜剧性揭示"
+      },
       "scene": "Walter家中"
     }
   ],

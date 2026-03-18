@@ -115,7 +115,26 @@ def list_all_clips(clips, key_moments=None):
                 for km in key_moments:
                     km_sec = time_to_seconds(km.get('time', '00:00:00'))
                     if abs(km_sec - start_sec) < 30:
-                        detailed_desc = km.get('detailed_description', '')
+                        dd = km.get('detailed_description', '')
+                        # 处理结构化格式
+                        if isinstance(dd, dict):
+                            # 转换为可读字符串
+                            parts = []
+                            if '人物' in dd:
+                                parts.append("【人物】" + '、'.join(dd['人物']))
+                            if '动作' in dd and isinstance(dd['动作'], dict):
+                               动作_strs = [f"{k}: {v}" for k, v in dd['动作'].items()]
+                                parts.append("【动作】" + '; '.join(动作_strs))
+                            if '对话' in dd and isinstance(dd['对话'], dict):
+                                对话_strs = [f"{k}: {v}" for k, v in dd['对话'].items()]
+                                parts.append("【对话】" + '; '.join(对话_strs))
+                            if '场景' in dd:
+                                parts.append("【场景】" + dd['场景'])
+                            if '氛围' in dd:
+                                parts.append("【氛围】" + dd['氛围'])
+                            detailed_desc = ' | '.join(parts)
+                        else:
+                            detailed_desc = str(dd)
                         break
             except:
                 pass
@@ -439,8 +458,26 @@ SRT 字幕格式：
                     km_sec = time_to_seconds(km_time)
                     if abs(km_sec - start_sec) < 30:
                         prompt += f"情节: {km.get('description', '')}\n"
-                        if km.get('detailed_description'):
-                            prompt += f"详情: {km.get('detailed_description', '')[:100]}...\n"
+                        dd = km.get('detailed_description', '')
+                        if dd:
+                            if isinstance(dd, dict):
+                                # 结构化格式处理
+                                parts = []
+                                if '人物' in dd:
+                                    parts.append("【人物】" + '、'.join(dd['人物']))
+                                if '动作' in dd and isinstance(dd['动作'], dict):
+                                    动作_strs = [f"{k}: {v}" for k, v in dd['动作'].items()]
+                                    parts.append("【动作】" + '; '.join(动作_strs))
+                                if '对话' in dd and isinstance(dd['对话'], dict):
+                                    对话_strs = [f"{k}: {v}" for k, v in dd['对话'].items()]
+                                    parts.append("【对话】" + '; '.join(对话_strs))
+                                if '场景' in dd:
+                                    parts.append("【场景】" + dd['场景'])
+                                if '氛围' in dd:
+                                    parts.append("【氛围】" + dd['氛围'])
+                                prompt += "详情: " + ' | '.join(parts)[:200] + "...\n"
+                            else:
+                                prompt += f"详情: {str(dd)[:100]}...\n"
                         break
                 except:
                     pass
@@ -605,8 +642,26 @@ SRT 字幕格式：
                     km_sec = time_to_seconds(km_time)
                     if abs(km_sec - start_sec) < 30:
                         prompt += f"情节: {km.get('description', '')}\n"
-                        if km.get('detailed_description'):
-                            prompt += f"详情: {km.get('detailed_description', '')[:100]}...\n"
+                        dd = km.get('detailed_description', '')
+                        if dd:
+                            if isinstance(dd, dict):
+                                # 结构化格式处理
+                                parts = []
+                                if '人物' in dd:
+                                    parts.append("【人物】" + '、'.join(dd['人物']))
+                                if '动作' in dd and isinstance(dd['动作'], dict):
+                                    动作_strs = [f"{k}: {v}" for k, v in dd['动作'].items()]
+                                    parts.append("【动作】" + '; '.join(动作_strs))
+                                if '对话' in dd and isinstance(dd['对话'], dict):
+                                    对话_strs = [f"{k}: {v}" for k, v in dd['对话'].items()]
+                                    parts.append("【对话】" + '; '.join(对话_strs))
+                                if '场景' in dd:
+                                    parts.append("【场景】" + dd['场景'])
+                                if '氛围' in dd:
+                                    parts.append("【氛围】" + dd['氛围'])
+                                prompt += "详情: " + ' | '.join(parts)[:200] + "...\n"
+                            else:
+                                prompt += f"详情: {str(dd)[:100]}...\n"
                         break
                 except:
                     pass

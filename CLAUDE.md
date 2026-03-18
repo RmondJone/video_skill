@@ -55,7 +55,7 @@ python skills/video-narrator/scripts/generate_xml.py clips/ timeline/project.xml
 - **Python 3**: 核心处理逻辑
 - **FFmpeg**: 视频处理和剪切
 - **faster-whisper**: 本地语音识别 (支持 tiny/base/small/medium/large 模型)
-- **AI API**: 支持 OpenAI API、Anthropic API 及兼容 OpenAI 格式的 API
+- **AI 分析**: 直接使用 Claude 自身能力进行分析，无需外部 API
 
 ## 配置说明
 
@@ -63,10 +63,11 @@ python skills/video-narrator/scripts/generate_xml.py clips/ timeline/project.xml
 
 | 变量名 | 说明 |
 |--------|------|
-| `OPENAI_API_KEY` | OpenAI API Key |
-| `OPENAI_BASE_URL` | OpenAI API 基础 URL |
-| `ANTHROPIC_API_KEY` | Anthropic API Key |
 | `WHISPER_MODEL` | Whisper 模型大小 (默认 base) |
+
+**重要：不需要配置任何外部 AI API Key！**
+
+AI 文案生成直接使用 Claude 自身的能力进行分析。
 
 ## 技能触发条件
 
