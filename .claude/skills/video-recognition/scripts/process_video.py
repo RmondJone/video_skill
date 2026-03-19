@@ -135,20 +135,26 @@ def process_video(video_path, output_dir, style='风趣幽默',
         duration = 600  # 默认10分钟
         print(f"⚠ 无法获取时长，使用默认值: {duration}秒")
 
-    # 步骤 1: 场景检测
+    # 步骤 1: 场景检测（如果已存在则跳过）
     scenes_json = os.path.join(output_dir, 'scenes.json')
-    cmd_scenes = [
-        'python3', os.path.join(SCRIPT_DIR, 'detect_scenes.py'),
-        video_path, scenes_json,
-        '--threshold', str(threshold)
-    ]
 
-    if not run_command(cmd_scenes, "步骤 1: 场景检测"):
-        sys.exit(1)
+    if os.path.exists(scenes_json):
+        print(f"\n✓ 检测到已存在的场景文件: {scenes_json}，跳过场景检测")
+        with open(scenes_json, 'r', encoding='utf-8') as f:
+            scenes_data = json.load(f)
+    else:
+        cmd_scenes = [
+            'python3', os.path.join(SCRIPT_DIR, 'detect_scenes.py'),
+            video_path, scenes_json,
+            '--threshold', str(threshold)
+        ]
 
-    # 加载场景检测结果，进行采样
-    with open(scenes_json, 'r', encoding='utf-8') as f:
-        scenes_data = json.load(f)
+        if not run_command(cmd_scenes, "步骤 1: 场景检测"):
+            sys.exit(1)
+
+        # 加载场景检测结果
+        with open(scenes_json, 'r', encoding='utf-8') as f:
+            scenes_data = json.load(f)
 
     original_scene_count = len(scenes_data.get('scenes', []))
     print(f"\n检测到 {original_scene_count} 个原始场景")
@@ -180,25 +186,31 @@ def process_video(video_path, output_dir, style='风趣幽默',
         sampled_scenes = scenes_data.get('scenes', [])
         print(f"场景数量在合理范围内: {original_scene_count} 个")
 
-    # 步骤 2: 关键帧提取
+    # 步骤 2: 关键帧提取（如果已存在则跳过）
     keyframes_dir = os.path.join(output_dir, 'keyframes')
     keyframes_json = os.path.join(keyframes_dir, 'keyframes.json')
-    cmd_keyframes = [
-        'python3', os.path.join(SCRIPT_DIR, 'extract_keyframes.py'),
-        video_path, scenes_json, keyframes_dir,
-        '--max-frames', str(max_frames)
-    ]
 
-    if not run_command(cmd_keyframes, "步骤 2: 关键帧提取"):
-        sys.exit(1)
+    if os.path.exists(keyframes_json):
+        print(f"\n✓ 检测到已存在的关键帧文件: {keyframes_json}，跳过关键帧提取")
+        with open(keyframes_json, 'r', encoding='utf-8') as f:
+            keyframes_data = json.load(f)
+    else:
+        cmd_keyframes = [
+            'python3', os.path.join(SCRIPT_DIR, 'extract_keyframes.py'),
+            video_path, scenes_json, keyframes_dir,
+            '--max-frames', str(max_frames)
+        ]
+
+        if not run_command(cmd_keyframes, "步骤 2: 关键帧提取"):
+            sys.exit(1)
+
+        with open(keyframes_json, 'r', encoding='utf-8') as f:
+            keyframes_data = json.load(f)
 
     # 步骤 3: 画面描述（生成模板）
     descriptions_json = os.path.join(output_dir, 'descriptions.json')
 
-    # 读取关键帧信息
-    with open(keyframes_json, 'r', encoding='utf-8') as f:
-        keyframes_data = json.load(f)
-
+    # keyframes_data 已在步骤2中加载
     keyframes = keyframes_data.get('keyframes', [])
 
     # 生成描述模板
