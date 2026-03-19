@@ -7,7 +7,9 @@ import subprocess
 import sys
 import os
 import json
+import time
 from datetime import datetime
+from tqdm import tqdm
 
 def parse_timestamp(ts):
     """解析时间戳为秒数"""
@@ -111,10 +113,15 @@ def main():
     print(f"正在剪切视频: {args.start} -> {args.end}")
     print(f"输出: {args.output}")
 
-    success = cut_video(args.input, start_sec, end_sec, args.output, codec)
+    # 使用 tqdm 显示处理进度（预估处理时间）
+    duration = end_sec - start_sec
+    with tqdm(total=100, desc="视频剪切", unit="%", bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]") as pbar:
+        # 模拟进度更新（实际进度由 FFmpeg 控制）
+        pbar.update(20)  # 开始处理
+        success = cut_video(args.input, start_sec, end_sec, args.output, codec)
+        pbar.update(80)  # 处理完成
 
     if success:
-        duration = end_sec - start_sec
         print(f"完成! 片段时长: {format_duration(duration)}")
     else:
         sys.exit(1)

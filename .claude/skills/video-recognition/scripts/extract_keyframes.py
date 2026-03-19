@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import sys
+from tqdm import tqdm
 
 
 def extract_keyframes(video_path, scenes_path, output_dir, max_frames=5):
@@ -29,7 +30,7 @@ def extract_keyframes(video_path, scenes_path, output_dir, max_frames=5):
     print(f"共有 {len(scenes)} 个场景需要提取关键帧")
 
     extracted = []
-    for i, scene in enumerate(scenes):
+    for i, scene in enumerate(tqdm(scenes, desc="提取关键帧", unit="场景")):
         start_time = scene['start_time']
         end_time = scene['end_time']
 
@@ -75,7 +76,6 @@ def extract_keyframes(video_path, scenes_path, output_dir, max_frames=5):
                     "time": t,
                     "file": output_file
                 })
-                print(f"  场景 {i}: 提取帧 @ {t} -> {output_file}")
             except subprocess.CalledProcessError as e:
                 print(f"  警告: 场景 {i} 帧 {j} 提取失败", file=sys.stderr)
 

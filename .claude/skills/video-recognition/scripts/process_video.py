@@ -17,6 +17,7 @@ import os
 import subprocess
 import sys
 import math
+from tqdm import tqdm
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -243,6 +244,20 @@ def process_video(video_path, output_dir, style='风趣幽默',
     print(f"\n✓ 描述模板已生成: {descriptions_json}")
     print(f"  - 场景数量: {len(descriptions)}")
     print(f"  - 视频时长: {desc_result['video_duration_formatted']}")
+
+    # 计算所需字幕数量和每场景应提供的短句数
+    estimated_subtitles = int(duration / sentence_duration) if sentence_duration > 0 else 0
+    sentences_per_scene = max(15, min(30, estimated_subtitles // len(descriptions) if descriptions else 15))
+
+    print(f"\n{'='*50}")
+    print(f"⚠️ 【重要提示】画面描述生成要求")
+    print(f"{'='*50}")
+    print(f"  - 预计所需字幕总数: {estimated_subtitles} 句 (每句 {sentence_duration} 秒)")
+    print(f"  - 每个场景 description 应提供: {sentences_per_scene}+ 个短句")
+    print(f"  - 短句用中文标点（，。！？；）分割")
+    print(f"  - 禁止只写 2-3 个短句，会导致字幕重复！")
+    print(f"\n示例 description 格式:")
+    print(f'  "description": "这是一个开场镜头。画面中蓝天白云，阳光明媚。远处的山峦连绵起伏。"')
 
     # 步骤 4: 生成解说文案（跳过手动分析阶段，直接生成）
     # 注意：这里需要 Claude 分析关键帧后填入 narrators

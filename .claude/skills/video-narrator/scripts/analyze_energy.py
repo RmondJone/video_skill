@@ -10,6 +10,7 @@ import subprocess
 import sys
 import numpy as np
 from datetime import datetime
+from tqdm import tqdm
 
 
 def get_video_duration(video_path):
@@ -30,11 +31,18 @@ def analyze_audio_rms(video_path, window_sec=3):
     """
     duration = get_video_duration(video_path)
     energies = []
-    current_time = 0
+
+    # 计算总步数
+    total_steps = int(duration / window_sec) + 1
 
     print(f"正在分析音频能量 (每{window_sec}秒一个采样点)...")
 
-    while current_time < duration:
+    # 使用 tqdm 显示进度
+    for step in tqdm(range(total_steps), desc="音频能量分析", unit="窗口"):
+        current_time = step * window_sec
+        if current_time >= duration:
+            break
+
         cmd = [
             'ffmpeg', '-y',
             '-ss', str(current_time),
@@ -75,10 +83,6 @@ def analyze_audio_rms(video_path, window_sec=3):
             'max_volume_db': max_vol
         })
 
-        current_time += window_sec
-        print(f"\r分析进度: {current_time:.1f}s / {duration:.1f}s (能量: {energy:.2f})", end='', flush=True)
-
-    print()
     return energies
 
 

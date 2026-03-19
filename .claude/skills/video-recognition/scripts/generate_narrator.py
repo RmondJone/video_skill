@@ -12,6 +12,7 @@ import argparse
 import json
 import sys
 import math
+from tqdm import tqdm
 
 
 # 风格定义
@@ -193,7 +194,7 @@ def generate_narrator(descriptions_path, output_path, style_name='风趣幽默',
     # 计算每个场景应该分配的句子数量
     sentences_per_scene = len(all_sentences) // total_scenes
 
-    for i in range(num_subtitles):
+    for i in tqdm(range(num_subtitles), desc="生成解说文案", unit="句"):
         if current_time >= total_duration:
             break
 

@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import sys
+from tqdm import tqdm
 
 
 def load_srt(srt_path):
@@ -123,7 +124,7 @@ def list_all_clips(clips, key_moments=None):
                             if '人物' in dd:
                                 parts.append("【人物】" + '、'.join(dd['人物']))
                             if '动作' in dd and isinstance(dd['动作'], dict):
-                               动作_strs = [f"{k}: {v}" for k, v in dd['动作'].items()]
+                                动作_strs = [f"{k}: {v}" for k, v in dd['动作'].items()]
                                 parts.append("【动作】" + '; '.join(动作_strs))
                             if '对话' in dd and isinstance(dd['对话'], dict):
                                 对话_strs = [f"{k}: {v}" for k, v in dd['对话'].items()]
@@ -414,7 +415,7 @@ SRT 字幕格式：
     # 添加片段信息
     prompt += f"【解说片段】(共 {len(selected_clips)} 个):\n\n"
 
-    for i, clip in enumerate(selected_clips, 1):
+    for i, clip in enumerate(tqdm(selected_clips, desc="解说文案生成", unit="片段"), 1):
         start_time = clip.get('start_time', clip.get('start', '00:00:00'))
         end_time = clip.get('end_time', clip.get('end', '00:00:00'))
 
@@ -601,7 +602,7 @@ SRT 字幕格式：
     # 添加用户选择的片段信息
     prompt += f"【解说片段】(共 {len(selected_clips)} 个，用户已选择):\n\n"
 
-    for i, clip in enumerate(selected_clips, 1):
+    for i, clip in enumerate(tqdm(selected_clips, desc="解说文案生成", unit="片段"), 1):
         start_time = clip.get('start_time', clip.get('start', '00:00:00'))
         end_time = clip.get('end_time', clip.get('end', '00:00:00'))
 

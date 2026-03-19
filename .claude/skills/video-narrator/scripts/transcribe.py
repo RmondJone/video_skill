@@ -6,6 +6,7 @@ import argparse
 import sys
 import os
 from faster_whisper import WhisperModel
+from tqdm import tqdm
 
 def generate_srt(segments, output_path):
     """生成 SRT 字幕文件"""
@@ -84,8 +85,11 @@ def main():
     print(f"检测到的语言: {info.language} (概率: {info.language_probability:.2f})")
     print(f"正在生成字幕文件: {args.output}")
 
-    # 将 segments 转换为列表以支持多次迭代
-    segment_list = list(segments)
+    # 将 segments 转换为列表以支持多次迭代，并显示进度条
+    # 估算片段数量（假设平均每段5秒）
+    estimated_segments = max(1, int(info.duration / 5))
+    print(f"预估片段数: {estimated_segments} 个")
+    segment_list = list(tqdm(segments, desc="语音识别", unit="段", total=estimated_segments))
     generate_srt(segment_list, args.output)
 
     print(f"完成! 识别了 {len(segment_list)} 个片段")
