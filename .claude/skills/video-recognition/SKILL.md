@@ -86,6 +86,28 @@ python3 -c "import scenedetect" 2>/dev/null || pip install scenedetect
 | 解压治愈 | 柔和舒缓、放松心情 | ASMR、冥想，自然 |
 | 温馨感人 | 情感充沛、温暖人心 | 亲情、友情、励志 |
 
+### 步骤 2.5: 选择每句字幕时长（可选）
+
+**询问用户每句字幕时长（默认 2.0 秒）：**
+
+```
+请选择每句字幕时长（直接回复数字即可）：
+1. 1.5秒 - 紧凑快速，适合快节奏内容
+2. 2.0秒 - 标准节奏（默认）
+3. 2.5秒 - 稍慢舒缓，适合慢镜头内容
+4. 3.0秒 - 慢速，适合抒情或重要解说
+5. 自定义 - 输入其他数值（如 2.3）
+```
+
+**字幕时长参考：**
+
+| 时长 | 适用场景 | 10分钟视频字幕数 |
+|------|----------|-----------------|
+| 1.5秒 | 快节奏Vlog、产品展示 | ~400句 |
+| 2.0秒 | 标准节奏（默认） | ~300句 |
+| 2.5秒 | 慢镜头、风景 | ~240句 |
+| 3.0秒 | 抒情内容、重要解说 | ~200句 |
+
 ### 步骤 3: 获取视频信息
 
 **【自动执行】** 使用 ffprobe 获取视频实际总时长：
@@ -111,10 +133,21 @@ python3 .claude/skills/video-recognition/scripts/extract_keyframes.py input.mp4 
 
 ### 步骤 6: 画面描述生成
 
-**【核心】使用 Claude 自身能力分析关键帧：**
-1. 读取关键帧图片
-2. 分析每个场景的画面内容
-3. **生成详细的场景描述文本**，包含多个短句供生成字幕使用
+**【核心 - 必须并行执行】使用 Claude 自身能力分析关键帧：**
+
+⚠️ **【重要】此步骤必须并行执行：**
+- 场景数量通常有 100-300 个，每个场景的画面分析是独立的
+- **必须使用并行方式同时分析所有关键帧**，禁止串行逐个分析
+- 并行执行可以将总时间从 10+ 分钟缩短到 1-2 分钟
+
+**执行方式：**
+1. 读取 `keyframes/keyframes.json` 获取所有关键帧路径
+2. **同时发送所有关键帧图片给 Claude 进行分析**（使用多线程/并发请求）
+3. 收集所有分析结果后，一次性写入 `descriptions.json`
+
+**禁止行为：**
+- ❌ 串行逐个分析关键帧（极慢，体验差）
+- ❌ 每分析完一张再分析下一张
 
 **【重要】场景描述JSON格式要求：**
 ```json
@@ -133,7 +166,7 @@ python3 .claude/skills/video-recognition/scripts/extract_keyframes.py input.mp4 
 
 ### 步骤 7: 叙事串联 + 风格化
 
-**【核心改进】每2秒一句紧凑字幕：**
+**【核心改进】每X秒一句紧凑字幕（时长可配置）：**
 
 ```bash
 python3 .claude/skills/video-recognition/scripts/generate_narrator.py \
@@ -144,7 +177,7 @@ python3 .claude/skills/video-recognition/scripts/generate_narrator.py \
 
 **时间轴计算规则：**
 - 视频总时长 = ffprobe 实际获取的时长
-- 每句字幕时长 = 2秒（可配置）
+- 每句字幕时长 = 用户配置的时长（默认2.0秒，可配置1.5/2.0/2.5/3.0秒等）
 - 字幕数量 = 总时长 / 每句时长
 - 末个字幕结束时间 = 视频总时长
 
@@ -157,7 +190,7 @@ output/<视频名>/
 │   ├── scene_001.jpg
 │   ├── scene_002.jpg
 ├── descriptions.json    # 画面描述（含详细描述）
-├── narrator.srt         # 解说字幕（SRT格式，每2秒一句）
+├── narrator.srt         # 解说字幕（SRT格式，每X秒一句）
 └── narrator.txt         # 解说文案（TXT格式）
 ```
 
@@ -220,7 +253,7 @@ output/<视频名>/
 1. **detect_scenes.py** - 场景检测脚本
 2. **extract_keyframes.py** - 关键帧提取脚本
 3. **describe_scenes.py** - 画面描述生成脚本
-4. **generate_narrator.py** - 叙事串联 + 风格化脚本（每2秒一句）
+4. **generate_narrator.py** - 叙事串联 + 风格化脚本（每X秒一句，可配置）
 5. **process_video.py** - 主流程编排脚本
 
 **脚本完整路径：**
@@ -229,7 +262,8 @@ output/<视频名>/
 SCRIPT_DIR=".claude/skills/video-recognition/scripts"
 
 # 一键执行完整流程（推荐）
-python3 ${SCRIPT_DIR}/process_video.py input.mp4 output/ --style 风趣幽默
+python3 ${SCRIPT_DIR}/process_video.py input.mp4 output/ \
+    --style 风趣幽默 --sentence-duration 2.0
 
 # 分步执行
 # 步骤 1: 场景检测
@@ -241,7 +275,7 @@ python3 ${SCRIPT_DIR}/extract_keyframes.py input.mp4 output/scenes.json output/k
 # 步骤 3: 生成描述模板
 python3 ${SCRIPT_DIR}/describe_scenes.py output/keyframes/keyframes.json output/descriptions.json
 
-# 步骤 4: 生成解说文案（每2秒一句紧凑字幕）
+# 步骤 4: 生成解说文案（每X秒一句紧凑字幕，可配置时长）
 python3 ${SCRIPT_DIR}/generate_narrator.py \
     output/descriptions.json output/narrator \
     --style 风趣幽默 --format both \

@@ -95,7 +95,8 @@ def sample_scenes(scenes_data, num_samples=10):
 
 
 def process_video(video_path, output_dir, style='风趣幽默',
-                 threshold=30.0, max_frames=5, num_scenes=10):
+                 threshold=30.0, max_frames=5, num_scenes=10,
+                 sentence_duration=2.0):
     """
     完整处理流程
 
@@ -103,6 +104,7 @@ def process_video(video_path, output_dir, style='风趣幽默',
     1. 自动获取视频实际总时长
     2. 场景采样数量限制
     3. 时间轴严格对齐视频总时长
+    4. 每句字幕时长可配置
 
     Args:
         video_path: 输入视频路径
@@ -111,6 +113,7 @@ def process_video(video_path, output_dir, style='风趣幽默',
         threshold: 场景检测阈值
         max_frames: 每场景最大帧数
         num_scenes: 最终输出的场景数量（默认10个）
+        sentence_duration: 每句字幕时长（秒，默认2.0）
     """
     # 验证输入
     if not os.path.exists(video_path):
@@ -266,7 +269,8 @@ def process_video(video_path, output_dir, style='风趣幽默',
             '--style', style,
             '--format', 'both',
             '--duration', str(duration),
-            '--scenes', str(len(descriptions))
+            '--scenes', str(len(descriptions)),
+            '--sentence-duration', str(sentence_duration)
         ]
 
         if run_command(cmd_narrator, "步骤 4: 生成解说文案"):
@@ -293,10 +297,13 @@ def main():
                         help='每场景最大帧数')
     parser.add_argument('--scenes', type=int, default=10,
                         help='最终输出场景数量（默认10个）')
+    parser.add_argument('--sentence-duration', type=float, default=2.0,
+                        help='每句字幕时长（秒，默认2.0）')
 
     args = parser.parse_args()
 
-    process_video(args.input, args.output, args.style, args.threshold, args.max_frames, args.scenes)
+    process_video(args.input, args.output, args.style, args.threshold,
+                  args.max_frames, args.scenes, args.sentence_duration)
 
 
 if __name__ == '__main__':
