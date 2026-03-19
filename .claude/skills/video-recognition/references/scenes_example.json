@@ -1,0 +1,23 @@
+{
+  "video_path": "example.mp4",
+  "threshold": 30.0,
+  "scene_count": 5,
+  "scenes": [
+    {
+      "index": 0,
+      "start_time": "00:00:00.000",
+      "end_time": "00:00:15.500",
+      "start_frame": 0,
+      "end_frame": 387,
+      "duration_frames": 387
+    },
+    {
+      "index": 1,
+      "start_time": "00:00:15.500",
+      "end_time": "00:00:32.200",
+      "start_frame": 387,
+      "end_frame": 805,
+      "duration_frames": 418
+    }
+  ]
+}
