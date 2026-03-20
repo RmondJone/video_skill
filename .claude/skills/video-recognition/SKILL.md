@@ -95,6 +95,38 @@ ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:no
 - 所有抽取的关键帧图片，保存到 `output/frames/` 目录
 - 视频总时长（秒）
 
+### 步骤 4b: 检查帧目录是否已存在
+
+**【重要】在执行抽帧和压缩之前，必须检查是否已有现成的帧图片：**
+
+```bash
+# 检查 frames 和 frames_360p 目录
+if [ -d "output/frames" ] && [ -d "output/frames_360p" ]; then
+    FRAME_COUNT=$(ls output/frames/frame_*.jpg 2>/dev/null | wc -l)
+    if [ "$FRAME_COUNT" -gt 0 ]; then
+        echo "✓ 发现已存在的帧图片目录，跳过抽帧和压缩步骤"
+        echo "  frames: $FRAME_COUNT 帧"
+        echo "  frames_360p: $FRAME_COUNT 帧"
+        # 直接进入步骤6（帧分组）
+        goto STEP_6
+    fi
+else
+    echo "✗ 未发现帧图片目录，开始执行抽帧和压缩..."
+    # 继续执行步骤5（压缩帧图片）
+fi
+```
+
+**跳过逻辑判定条件：**
+- ✅ `output/frames/` 和 `output/frames_360p/` 都存在且非空 → **跳过步骤4和5，直接进入步骤6**
+- ❌ 任一目录不存在或为空 → **执行完整步骤4（抽帧）和步骤5（压缩）**
+
+**【跳过抽帧和压缩的好处】：**
+- 节省 FFmpeg 抽帧时间（每视频约1-5分钟）
+- 节省压缩处理时间（每视频约2-3分钟）
+- 已有高质量原始帧和压缩帧，可直接复用
+
+---
+
 ### 步骤 5: 压缩帧图片（360P）
 
 **将抽取的帧图片压缩为360P，减小体积以便更快分析：**
@@ -110,7 +142,7 @@ done
 **输出：**
 - 压缩后的360P帧图片，保存到 `output/frames_360p/` 目录
 
-### 步骤 6: 帧分组
+### 步骤 6b: 帧分组
 
 **将抽取的帧图片按组划分，便于并行处理：**
 
@@ -263,7 +295,23 @@ def merge_frame_descriptions(group_results, video_duration, frame_interval):
 - 每帧的时间戳和详细描述
 - 所有帧必须按时间顺序排列
 
-### 步骤 9: 第二阶段 - 根据JSON生成解说文案（2秒一句）
+### 步骤 9: 第二阶段 - 根据JSON生成解说文案（4秒一句）
+
+**【推荐】使用 `generate_narration.py` 脚本生成连贯解说：**
+
+```bash
+python .claude/skills/video-recognition/scripts/generate_narration.py \
+    output/frame_descriptions.json \
+    output/narration.srt \
+    humor \
+    4
+```
+
+**参数说明：**
+- `output/frame_descriptions.json` - 帧描述JSON路径
+- `output/narration.srt` - 输出SRT路径
+- `humor` - 解说风格（humor/warm/tech/mystery/healing）
+- `4` - 字幕间隔秒数（默认4秒）
 
 **【此步骤可独立执行】如果已有 frame_descriptions.json，可以直接从此步骤开始：**
 - 重新选择不同风格生成新解说
@@ -274,76 +322,68 @@ def merge_frame_descriptions(group_results, video_duration, frame_interval):
 
 **此阶段必须：**
 1. 读取第一阶段生成的 `frame_descriptions.json`
-2. 读取 `references/story_style.md` 了解风格特点
-3. 根据用户选择的风格生成解说文案
+2. 脚本自动分析叙事流程，划分叙事段落
+3. 根据用户选择的风格生成连贯解说文案
 
-**解说文案生成规则（2秒一句话）：**
+**解说文案生成规则（4秒一句话）：**
 
 ```
 视频总时长：T 秒
-每句话时长：2 秒
-字幕数量 = ceil(T / 2)
+每句话时长：4 秒
+字幕数量 = ceil(T / 4)
 
 示例：
 - 视频时长：120秒
-- 每2秒一句话，共60条字幕
-- 第1条：00:00:00,000 --> 00:00:02,000
-- 第2条：00:00:02,000 --> 00:00:04,000
+- 每4秒一句话，共30条字幕
+- 第1条：00:00:00,000 --> 00:00:04,000
+- 第2条：00:00:04,000 --> 00:00:08,000
 - ...
-- 第60条：00:01:58,000 --> 00:02:00,000
+- 第30条：00:01:56,000 --> 00:02:00,000
 ```
+
+**【脚本特点】generate_narration.py 功能：**
+1. 自动分析叙事流程，将视频划分为若干叙事段落
+2. 每个段落根据动作类型（探索、砍伐、挖掘、搭建等）生成对应解说
+3. 使用自然过渡词连接相邻文案，避免生硬重复
+4. 支持5种解说风格：幽默、温馨、科技、悬疑、解压
+5. 时间轴自动对齐视频时长
 
 **【重要】每条字幕内容限制：**
-- 每条字幕最多1句话
-- 字幕时长固定2秒
+- 每条字幕最多1-2句话
+- 字幕时长默认4秒（可配置）
 - 内容应简洁明了，适合快速阅读
-- **【强制】每条字幕内容必须不同！禁止重复相同的解说文案**
+- **【强制】每条字幕内容必须不同！使用自然过渡避免重复**
 
 **【防重复指导】**
-- 每个帧/场景生成的解说文案必须独特，避免相似描述重复使用
-- 如果帧描述内容较少，应创意性地从不同角度描述，而不是重复相同的表达
-- 生成前检查已生成的文案，确保新文案与已有文案不重复
+- 基础文案库循环时自动添加过渡词
+- 过渡词库：然后、接下来、继续、与此同时、在此期间等
+- 确保连续字幕不会完全相同
 
-### 步骤 10: 汇总生成SRT字幕（2秒一句话）
+### 步骤 10: 汇总生成SRT字幕（4秒一句话）
 
-**收集所有解说文案，合并生成完整SRT字幕：**
+**使用脚本自动生成完整SRT字幕：**
 
-```python
-def merge_narrations_to_srt(group_results, video_duration):
-    """将各组解说合并为SRT字幕"""
-    srt_lines = []
-    subtitle_index = 1
-    seen_texts = set()  # 用于去重
-
-    for group in group_results:
-        start_time = group["start_time"]  # HH:MM:SS,mmm
-        end_time = group["end_time"]      # HH:MM:SS,mmm
-        narration = group["narration"]
-
-        # 【修复】跳过重复的解说文案
-        if narration in seen_texts:
-            continue
-        seen_texts.add(narration)
-
-        srt_lines.append(f"{subtitle_index}")
-        srt_lines.append(f"{start_time} --> {end_time}")
-        srt_lines.append(narration)
-        srt_lines.append("")  # 空行分隔
-
-        subtitle_index += 1
-
-    return "\n".join(srt_lines)
+```bash
+python .claude/skills/video-recognition/scripts/generate_narration.py \
+    output/frame_descriptions.json \
+    output/narration.srt \
+    humor \
+    4
 ```
 
-**【强制去重规则】生成 SRT 时必须遵守：**
-1. 每个时间戳组合 `(start, end)` 只能出现一次
-2. 每条解说文案内容必须唯一，禁止重复相同的文案
-3. 如果生成的文案数量不足，应基于帧描述生成更多样化的内容，而不是重复使用相同文案
-4. 宁可少生成几条字幕，也要保证每条内容不同
-
 **【关键约束】SRT字幕时长必须和视频总时长完全对应：**
-- 最后一个字幕的结束时间 = 视频总时长
-- 不得超出视频时长，也不得少于视频时长
+- 最后一个字幕的结束时间 ≈ 视频总时长
+- 不得超出视频时长过多
+
+**【5种解说风格】**
+
+| 风格 | 特点 | 适用场景 |
+|------|------|----------|
+| humor | 幽默风趣，轻松诙谐 | 娱乐、搞笑、日常 |
+| warm | 温馨感人，温暖治愈 | 情感、生活、人文 |
+| tech | 科技硬核，专业严谨 | 数码、科技、测评 |
+| mystery | 悬疑烧脑，紧张刺激 | 悬疑、推理、剧情 |
+| healing | 解压治愈，放松舒缓 | ASMR、冥想、自然 |
 
 ### 步骤 11: 输出文件
 
@@ -361,7 +401,7 @@ output/
 │   └── ...
 ├── frames_info.json          # 帧分组信息
 ├── frame_descriptions.json   # 【第一阶段】画面识别JSON（详细描述）
-├── narration.srt             # 【第二阶段】生成的解说字幕（2秒/句）
+├── narration.srt             # 【第二阶段】生成的解说字幕（4秒/句）
 └── manifest.json             # 处理清单
 ```
 
@@ -397,7 +437,7 @@ output/
   "frame_interval": 10,
   "total_frames": 12,
   "groups_count": 2,
-  "subtitle_interval": 2,
+  "subtitle_interval": 4,
   "style": "幽默风趣",
   "output_files": {
     "frames_dir": "output/frames",
@@ -532,7 +572,10 @@ output/
 2. **SRT时长对齐**：生成的字幕总时长必须等于视频时长
 3. **子Agent调用**：必须使用 dispatching-parallel-agents 技能并行处理
 4. **风格一致性**：同一视频的所有解说必须保持同一风格
-5. **跳过帧分析**：如果 `output/frame_descriptions.json` 已存在，自动跳过第一阶段，可直接切换不同风格重新生成解说
+5. **多级跳过逻辑**：
+   - 如果 `frames/` 和 `frames_360p/` 存在 → 跳过抽帧和压缩
+   - 如果 `frame_descriptions.json` 存在 → 跳过帧分析
+   - 可直接切换不同风格重新生成解说
 
 ## 【强制】禁止行为
 
@@ -556,12 +599,15 @@ output/
 3. 详细描述：有什么人、在干什么、场景细节
 4. 输出：`frame_descriptions.json`
 
-**【重要】第一阶段支持跳过：**
-- 如果 `output/frame_descriptions.json` 已存在，**自动跳过第一阶段**
-- 可直接进入第二阶段，用不同风格重新生成解说
+**【重要】第一阶段支持多级跳过：**
+| 检查项 | 存在？ | 动作 |
+|--------|--------|------|
+| `frames/` 和 `frames_360p/` | ✅ 是 | 跳过抽帧和压缩，直接分组 |
+| `frame_descriptions.json` | ✅ 是 | 跳过帧分析，直接生成解说 |
+| 上述都不存在 | ❌ 否 | 执行完整第一阶段流程 |
 
 ### 第二阶段：解说文案生成（narration.srt）
-1. 读取 `frame_descriptions.json`
-2. 根据风格生成解说文案
-3. 按2秒一句生成SRT字幕
+1. 使用 `generate_narration.py` 脚本读取 `frame_descriptions.json`
+2. 自动分析叙事流程，划分叙事段落
+3. 按4秒一句生成连贯解说文案
 4. 输出：`narration.srt`
