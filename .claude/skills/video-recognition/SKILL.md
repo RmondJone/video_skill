@@ -297,33 +297,13 @@ def merge_frame_descriptions(group_results, video_duration, frame_interval):
 
 ### 步骤 9: 第二阶段 - 根据JSON生成解说文案（4秒一句）
 
-**【推荐】使用 `generate_narration.py` 脚本生成连贯解说：**
-
-```bash
-python .claude/skills/video-recognition/scripts/generate_narration.py \
-    output/frame_descriptions.json \
-    output/narration.srt \
-    humor \
-    4
-```
-
-**参数说明：**
-- `output/frame_descriptions.json` - 帧描述JSON路径
-- `output/narration.srt` - 输出SRT路径
-- `humor` - 解说风格（humor/warm/tech/mystery/healing）
-- `4` - 字幕间隔秒数（默认4秒）
-
-**【此步骤可独立执行】如果已有 frame_descriptions.json，可以直接从此步骤开始：**
-- 重新选择不同风格生成新解说
-- 修复/重新生成解说文案
-- 仅修改输出格式
-
-**【核心-第二阶段】读取画面识别JSON，生成风格化解说文案：**
+**【核心-第二阶段】直接使用 AI 能力生成风格化解说文案：**
 
 **此阶段必须：**
-1. 读取第一阶段生成的 `frame_descriptions.json`
-2. 脚本自动分析叙事流程，划分叙事段落
+1. 读取第一阶段生成的 `output/frame_descriptions.json`
+2. 分析叙事流程，划分叙事段落
 3. 根据用户选择的风格生成连贯解说文案
+4. 直接输出符合SRT格式的字幕内容
 
 **解说文案生成规则（4秒一句话）：**
 
@@ -341,15 +321,26 @@ python .claude/skills/video-recognition/scripts/generate_narration.py \
 - 第30条：00:01:56,000 --> 00:02:00,000
 ```
 
-**【脚本特点】generate_narration.py 功能：**
-1. 自动分析叙事流程，将视频划分为若干叙事段落
-2. 每个段落根据动作类型（探索、砍伐、挖掘、搭建等）生成对应解说
-3. 使用自然过渡词连接相邻文案，避免生硬重复
-4. 支持5种解说风格：幽默、温馨、科技、悬疑、解压
-5. 时间轴自动对齐视频时长
+**【AI直接生成】AI根据画面描述JSON，直接生成SRT字幕：**
+1. 分析 `frame_descriptions.json` 中的帧描述内容
+2. 分析叙事流程，将视频划分为若干叙事段落
+3. 每个段落根据动作类型（探索、砍伐、挖掘、搭建等）生成对应解说
+4. 使用自然过渡词连接相邻文案，避免生硬重复
+5. 支持5种解说风格：幽默、温馨、科技、悬疑、解压
+6. 时间轴自动对齐视频时长
+
+**【5种解说风格说明】（详见 references/story_style.md）：**
+
+| 风格 | 特点 | 适用场景 |
+|------|------|----------|
+| 幽默风趣 | 轻松诙谐，适当使用网络用语和流行梗 | 娱乐、搞笑、日常 |
+| 温馨感人 | 温暖柔和，注重情感表达和细节描写 | 情感、生活、人文 |
+| 科技硬核 | 专业术语准确，数据支撑有力 | 数码、科技、测评 |
+| 悬疑烧脑 | 制造悬念，引导思考，留有想象空间 | 悬疑、推理、剧情 |
+| 解压治愈 | 舒缓放松，简洁不啰嗦 | ASMR、冥想、自然 |
 
 **【重要】每条字幕内容限制：**
-- 每条字幕最多1-2句话
+- 每条字幕最多3-5句话
 - 字幕时长默认4秒（可配置）
 - 内容应简洁明了，适合快速阅读
 - **【强制】每条字幕内容必须不同！使用自然过渡避免重复**
@@ -359,21 +350,35 @@ python .claude/skills/video-recognition/scripts/generate_narration.py \
 - 过渡词库：然后、接下来、继续、与此同时、在此期间等
 - 确保连续字幕不会完全相同
 
-### 步骤 10: 汇总生成SRT字幕（4秒一句话）
-
-**使用脚本自动生成完整SRT字幕：**
-
-```bash
-python .claude/skills/video-recognition/scripts/generate_narration.py \
-    output/frame_descriptions.json \
-    output/narration.srt \
-    humor \
-    4
-```
+### 步骤 10: 直接输出SRT字幕内容
 
 **【关键约束】SRT字幕时长必须和视频总时长完全对应：**
 - 最后一个字幕的结束时间 ≈ 视频总时长
 - 不得超出视频时长过多
+
+**【直接输出】AI 直接生成并输出完整SRT字幕内容：**
+
+读取 `output/frame_descriptions.json` 后，直接按照SRT格式输出字幕内容，无需调用任何脚本。
+
+**SRT字幕格式要求：**
+```
+1
+00:00:00,000 --> 00:00:04,000
+字幕内容第一句
+
+2
+00:00:04,000 --> 00:00:08,000
+字幕内容第二句
+
+3
+00:00:08,000 --> 00:00:12,000
+字幕内容第三句
+...
+```
+
+**【重要】生成完成后：**
+1. 将完整SRT内容保存到 `output/narration.srt`
+2. 告知用户输出文件路径
 
 **【5种解说风格】**
 
@@ -512,8 +517,8 @@ output/
 8️⃣ 正在汇总画面识别结果到JSON...
    ✓ frame_descriptions.json 已生成（12帧详细描述）
 
-9️⃣ 【第二阶段】正在生成解说文案（2秒/句）...
-   ✓ 60条解说文案已生成
+9️⃣ 【第二阶段】AI 正在根据帧描述JSON生成解说文案...
+   ✓ 60条解说文案已生成（科技硬核风格）
    ✓ SRT字幕已生成
 
 🔟 正在对齐SRT字幕时长...
@@ -607,7 +612,8 @@ output/
 | 上述都不存在 | ❌ 否 | 执行完整第一阶段流程 |
 
 ### 第二阶段：解说文案生成（narration.srt）
-1. 使用 `generate_narration.py` 脚本读取 `frame_descriptions.json`
-2. 自动分析叙事流程，划分叙事段落
-3. 按4秒一句生成连贯解说文案
-4. 输出：`narration.srt`
+1. 读取 `frame_descriptions.json`
+2. AI 自动分析叙事流程，划分叙事段落
+3. AI 根据用户预设风格，按4秒一句生成连贯解说文案
+4. AI 直接输出符合SRT格式的字幕内容
+5. 保存到：`narration.srt`
