@@ -409,7 +409,10 @@ python3 .claude/skills/video-narrator/scripts/analyze_energy.py input.mp4 output
 
 **重要：默认保留所有识别出的高能片段，不进行数量限制！**
 
-### 步骤 4: 纯音乐视频剪切
+**【重要】输出片段按时间顺序排序！**
+- 识别出的精彩片段按时间顺序（从视频开头到结尾）排列
+- 不是按能量高低排序，保持视频叙事的连贯性
+- 有对话视频和纯音乐视频的处理结果均按时间顺序排列
 
 **必须使用脚本！** 运行 scripts/cut_video.py 脚本进行剪切：
 

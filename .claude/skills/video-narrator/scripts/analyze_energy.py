@@ -147,8 +147,8 @@ def find_highlight_segments(energies, threshold_percentile=75, min_duration=5, m
     if highlight_ranges:
         highlight_ranges = merge_adjacent_ranges(highlight_ranges, merge_gap)
 
-    # 按能量排序（从高到低）
-    highlight_ranges.sort(key=lambda x: x['avg_energy'], reverse=True)
+    # 【修复】按时间顺序排序（而非按能量排序），保持视频叙事的连贯性
+    highlight_ranges.sort(key=lambda x: x['start'])
 
     # 如果设置了最大片段数限制，则截取；None 或 0 表示保留全部
     if max_clips is not None and max_clips > 0:
